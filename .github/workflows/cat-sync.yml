@@ -1,0 +1,29 @@
+name: cat-sync
+on:
+  schedule:
+    - cron: "0 6 5 * *"   # dia 5 de cada mês, 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      inspecao:
+        description: "Modo inspeção (1 = só verificar colunas/encoding, sem publicar)"
+        required: false
+        default: "0"
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pandas requests
+      - run: python scripts/agrega_cat.py
+        env:
+          INSPECAO: ${{ github.event.inputs.inspecao || '0' }}
+      - run: |
+          git config user.name "cat-sync-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add docs/
+          git commit -m "CAT: atualização mensal" || echo "sem novidades"
+          git push
