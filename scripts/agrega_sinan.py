@@ -87,6 +87,22 @@ def nome_arquivo(agravo, ano):
     return f"{agravo}BR{str(ano)[2:]}.dbc"
 
 
+def ler_dbc(tmp_path):
+    """Compatibilidade entre versões do pyreaddbc: a função de leitura já se
+    chamou read_dbc e readdbc. Detecta qual existe em vez de presumir; se a
+    assinatura não aceitar encoding, tenta sem. Se nada existir, para com
+    mensagem clara listando o que a biblioteca oferece."""
+    fn = getattr(pyreaddbc, "read_dbc", None) or getattr(pyreaddbc, "readdbc", None)
+    if fn is None:
+        disponiveis = [n for n in dir(pyreaddbc) if not n.startswith("_")]
+        sys.exit(f"ERRO: nenhuma função de leitura conhecida em pyreaddbc. "
+                 f"Funções disponíveis: {disponiveis}")
+    try:
+        return fn(tmp_path, encoding="iso-8859-1")
+    except TypeError:
+        return fn(tmp_path)
+
+
 def baixar_dbc(ftp, caminho_remoto):
     buf = io.BytesIO()
     ftp.retrbinary(f"RETR {caminho_remoto}", buf.write)
@@ -95,7 +111,7 @@ def baixar_dbc(ftp, caminho_remoto):
     with tempfile.NamedTemporaryFile(suffix=".dbc", delete=False) as tmp:
         tmp.write(conteudo)
         tmp_path = tmp.name
-    df = pyreaddbc.read_dbc(tmp_path, encoding="iso-8859-1")
+    df = ler_dbc(tmp_path)
     os.unlink(tmp_path)
     return df.astype(str), h, len(conteudo)
 
