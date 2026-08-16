@@ -3,26 +3,33 @@
 agrega_sinan.py — Pipeline SINAN/DATASUS (agravos relacionados ao trabalho)
 App: Saúde, Trabalho & Território (TCC Fiocruz)
 
-REGRAS INVIOLÁVEIS (especificação de 15/08/2026):
-- O JSON publicado contém APENAS agregados (princípio da minimização,
-  LGPD art. 6º, III), ainda que o microdado DATASUS seja anonimizado.
-- CAT e SINAN são séries paralelas: este arquivo NUNCA é somado ao da CAT.
-- Recorte de município — decisão de Karol (15/08/2026):
-    VIOL -> ID_MN_OCOR (ocorrência)
-    demais agravos (sem campo de ocorrência) -> ID_MUNICIP (notificação)
-    MUN_EMP NÃO é recorte; sua taxa de preenchimento é registrada nos
-    metadados como evidência empírica (argumento da tese).
-- Filtro ocupacional das fichas gerais:
-    IEXO -> DOENCA_TRA = Sim   |   VIOL -> REL_TRAB = Sim
-- Subnotificação intra-registro: filtro ocupacional positivo E CAT não
-  emitida (campo CAT na IEXO; REL_CAT na VIOL).
-- Anos ausentes (ex.: VIOLBR26) são tolerados e registrados como lacuna.
-- Nada fixado sem verificação: caminho FTP e codificações Sim/Não são
-  conferidos no modo inspeção antes do primeiro run normal.
+VERSÃO DESTRAVADA em 16/08/2026, após verificação tripla:
+(1) inspeção dos microdados reais (docs/inspecao_sinan.json);
+(2) mapa-sinan.json do projeto (Dicionário SINAN NET v5.0);
+(3) dicionário oficial da ficha de violência (SINAN NET v5.0/Patch 5.1).
 
-MODO INSPEÇÃO (INSPECAO=1): lista o FTP, baixa amostras de IEXO e VIOL,
-imprime colunas e distribuições dos campos de filtro/óbito/município.
-Não agrega, não publica.
+REGRAS INVIOLÁVEIS (especificação de 15/08/2026):
+- JSON publicado contém APENAS agregados (LGPD art. 6º, III).
+- CAT e SINAN são séries paralelas: NUNCA somadas.
+- Município: VIOL -> ID_MN_OCOR (ocorrência); demais -> ID_MUNICIP
+  (notificação). MUN_EMP não é recorte; sua taxa de preenchimento é
+  registrada nos metadados (evidência empírica da tese).
+- Anos ausentes (VIOLBR26) tolerados e registrados como lacuna.
+- Nenhum dado fictício, nunca.
+
+DEFINIÇÕES VERIFICADAS (16/08/2026):
+- Sim = "1" nos filtros DOENCA_TRA (IEXO) e REL_TRAB (VIOL).
+- Óbito: NÃO existe código único no SINAN (aviso do mapa-sinan.json).
+  Conta-se EVOLUCAO igual ao código de óbito PELO AGRAVO específico:
+  ACGR=5, ACBI=5, LERD/PAIR/DERM/PNEU/MENT/CANC=6, IEXO=3.
+  Óbitos por outra causa NÃO contam.
+- VIOL: a ficha oficial NÃO possui campo de evolução/óbito (dicionário
+  v5.0/5.1); EVOLUCAO/DT_OBITO no microdado são residuais (>99% vazios).
+  Óbitos de VIOL saem como null — devem ser buscados no SIM.
+- Subnotificação intra-registro (definição ESTRITA): filtro ocupacional
+  positivo E CAT/REL_CAT = "2" (Não). Exclui "não se aplica" (3 na IEXO,
+  8 na VIOL) — trabalhador fora do regime da CAT não está subnotificado —
+  e exclui "ignorado"/vazio.
 """
 
 import ftplib
@@ -38,26 +45,32 @@ import pandas as pd
 import pyreaddbc
 
 # ----------------------------------------------------------------------
-# CONFIGURAÇÃO — ⚠️ confirmar APÓS o primeiro run em modo inspeção
+# CONFIGURAÇÃO — verificada em 16/08/2026 (tripla checagem)
 # ----------------------------------------------------------------------
 
 FTP_HOST = "ftp.datasus.gov.br"
-# Caminhos prováveis (padrão conhecido) — CONFIRMAR na inspeção, não presumir:
-DIR_BASE = "/dissemin/publicos/SINAN/DADOS"
+DIR_BASE = "/dissemin/publicos/SINAN/DADOS"   # confirmado na inspeção
 SUBDIRS = {"FINAIS": "final", "PRELIM": "preliminar"}
 
 AGRAVOS = ["ACGR", "ACBI", "CANC", "DERM", "IEXO", "LERD", "MENT", "PAIR", "PNEU", "VIOL"]
 ANO_INICIAL = 2023
 
-# ⚠️ Trocar para True SOMENTE após conferir na inspeção (e no mapa-sinan.json
-# do projeto) os valores reais de codificação.
-CODIFICACAO_CONFIRMADA = False
-COD_SIM = "1"          # valor que representa "Sim" — confirmar
-VALORES_OBITO_EVOLUCAO = []  # códigos de EVOLUCAO que significam óbito — confirmar por agravo
+CODIFICACAO_CONFIRMADA = True   # inspeção + mapa-sinan.json + dicionário VIOL
+COD_SIM = "1"
+VALOR_CAT_NAO_EMITIDA = "2"     # definição estrita de subnotificação
 
-CAMPO_FILTRO = {"IEXO": "DOENCA_TRA", "VIOL": "REL_TRAB"}   # verificados em 15/08/2026
-CAMPO_CAT = {"IEXO": "CAT", "VIOL": "REL_CAT"}              # verificados em 15/08/2026
-CAMPO_MUNICIPIO = {"VIOL": "ID_MN_OCOR"}                    # demais: ID_MUNICIP
+# Código de EVOLUCAO que significa óbito PELO agravo (mapa-sinan.json).
+# None = a ficha não possui campo de óbito confiável (caso VIOL).
+CODIGO_OBITO_POR_AGRAVO = {
+    "ACGR": "5", "ACBI": "5",
+    "LERD": "6", "PAIR": "6", "DERM": "6", "PNEU": "6", "MENT": "6", "CANC": "6",
+    "IEXO": "3",
+    "VIOL": None,
+}
+
+CAMPO_FILTRO = {"IEXO": "DOENCA_TRA", "VIOL": "REL_TRAB"}
+CAMPO_CAT = {"IEXO": "CAT", "VIOL": "REL_CAT"}
+CAMPO_MUNICIPIO = {"VIOL": "ID_MN_OCOR"}
 MUNICIPIO_PADRAO = "ID_MUNICIP"
 
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
@@ -71,7 +84,7 @@ def log(msg: str) -> None:
 
 
 def conectar():
-    ftp = ftplib.FTP(FTP_HOST, timeout=120)
+    ftp = ftplib.FTP(FTP_HOST, timeout=300)
     ftp.login()
     return ftp
 
@@ -88,12 +101,8 @@ def nome_arquivo(agravo, ano):
 
 
 def ler_dbc(tmp_path):
-    """Lê um .dbc do DATASUS de forma robusta entre versões do pyreaddbc.
-    Camada 1: procura a função de leitura direta (read_dbc/readdbc), inclusive
-    dentro do submódulo pyreaddbc.readdbc (em algumas versões, 'readdbc' é um
-    submódulo, não uma função). Camada 2: converte .dbc -> .dbf com dbc2dbf
-    (estável em todas as versões) e lê com dbfread. Camada 3: para com
-    diagnóstico claro. Nunca presume, nunca inventa."""
+    """Lê um .dbc de forma robusta entre versões do pyreaddbc (função direta,
+    submódulo ou fallback dbc2dbf+dbfread). Nunca presume, nunca inventa."""
     sub = getattr(pyreaddbc, "readdbc", None)
     candidatos = []
     f = getattr(pyreaddbc, "read_dbc", None)
@@ -101,7 +110,7 @@ def ler_dbc(tmp_path):
         candidatos.append(f)
     if callable(sub):
         candidatos.append(sub)
-    elif sub is not None:  # 'readdbc' é submódulo: procurar funções dentro dele
+    elif sub is not None:
         for nome in ("read_dbc", "readdbc"):
             g = getattr(sub, nome, None)
             if callable(g):
@@ -114,7 +123,6 @@ def ler_dbc(tmp_path):
                 return fn(tmp_path)
             except TypeError:
                 continue
-    # Fallback: dbc2dbf + dbfread
     conv = getattr(pyreaddbc, "dbc2dbf", None)
     if conv is None and sub is not None and not callable(sub):
         conv = getattr(sub, "dbc2dbf", None)
@@ -127,11 +135,10 @@ def ler_dbc(tmp_path):
         os.unlink(dbf_path)
         return df
     disponiveis = [n for n in dir(pyreaddbc) if not n.startswith("_")]
-    sys.exit(f"ERRO: não foi possível ler o .dbc com esta versão do pyreaddbc. "
-             f"A biblioteca oferece: {disponiveis}")
+    sys.exit(f"ERRO: não foi possível ler o .dbc. pyreaddbc oferece: {disponiveis}")
 
 
-def baixar_dbc(ftp, caminho_remoto):
+def baixar_dbc(ftp, caminho_remoto, colunas_necessarias=None):
     buf = io.BytesIO()
     ftp.retrbinary(f"RETR {caminho_remoto}", buf.write)
     conteudo = buf.getvalue()
@@ -141,16 +148,17 @@ def baixar_dbc(ftp, caminho_remoto):
         tmp_path = tmp.name
     df = ler_dbc(tmp_path)
     os.unlink(tmp_path)
+    if colunas_necessarias:
+        presentes = [c for c in colunas_necessarias if c in df.columns]
+        df = df[presentes]
     return df.astype(str), h, len(conteudo)
 
 
 def localizar_arquivos(ftp):
-    """Mapeia, por agravo×ano, onde o .dbc existe (FINAIS/PRELIM) — sem presumir."""
     mapa, lacunas = {}, []
     listagens = {}
     for sub in SUBDIRS:
-        caminho = f"{DIR_BASE}/{sub}"
-        listagens[sub] = listar_dir(ftp, caminho)
+        listagens[sub] = listar_dir(ftp, f"{DIR_BASE}/{sub}")
     ano_atual = datetime.now(timezone.utc).year
     for agravo in AGRAVOS:
         for ano in range(ANO_INICIAL, ano_atual + 1):
@@ -189,21 +197,14 @@ def modo_inspecao():
         "arquivosLocalizados": {f"{a}-{ano}": c[0] for (a, ano), c in sorted(mapa.items())},
         "lacunas": lacunas,
         "amostras": {},
-        "observacao": (
-            "Conferir: (1) caminho FTP real; (2) codificação de 'Sim' nos campos de filtro "
-            "(comparar com mapa-sinan.json do projeto); (3) códigos de óbito em EVOLUCAO. "
-            "Depois preencher COD_SIM/VALORES_OBITO_EVOLUCAO e mudar CODIFICACAO_CONFIRMADA "
-            "para True. Nada foi agregado nem publicado."
-        ),
     }
-    # Amostras: IEXO e VIOL mais recentes disponíveis
     for agravo in ("IEXO", "VIOL"):
         anos = sorted([ano for (a, ano) in mapa if a == agravo])
         if not anos:
             achado["amostras"][agravo] = "NENHUM ARQUIVO LOCALIZADO"
             continue
         caminho, status = mapa[(agravo, anos[-1])]
-        df, h, tam = baixar_dbc(ftp, caminho)
+        df, h, _ = baixar_dbc(ftp, caminho)
         achado["amostras"][agravo] = {
             "arquivo": caminho, "status": status, "sha256": h[:16], "linhas": len(df),
             "colunas": list(df.columns),
@@ -223,7 +224,6 @@ def modo_inspecao():
         json.dump(achado, f, ensure_ascii=False, indent=2)
     log("=== RESULTADO DA INSPEÇÃO ===")
     log(json.dumps(achado, ensure_ascii=False, indent=2))
-    log("Inspeção gravada em docs/inspecao_sinan.json. Copiar este log e enviar ao Claude.")
 
 
 def carregar_json(caminho, padrao):
@@ -233,27 +233,19 @@ def carregar_json(caminho, padrao):
     return padrao
 
 
-def eh_obito(df):
-    """Óbito: DT_OBITO preenchida quando o campo existe; senão EVOLUCAO nos códigos confirmados."""
-    if "DT_OBITO" in df.columns:
-        return (~df["DT_OBITO"].isin(["", "nan", "None"])) & df["DT_OBITO"].notna()
-    if "EVOLUCAO" in df.columns and VALORES_OBITO_EVOLUCAO:
-        return df["EVOLUCAO"].isin([str(v) for v in VALORES_OBITO_EVOLUCAO])
-    return pd.Series(False, index=df.index)
+def rotulo_municipio(serie):
+    s = serie.astype(str).str.strip()
+    return s.where(~s.isin(["", "nan", "None", "NaN"]), "IGNORADO")
 
 
 def modo_normal():
     if not CODIFICACAO_CONFIRMADA:
-        sys.exit(
-            "PARADO POR SEGURANÇA: codificações não confirmadas. Rode primeiro com "
-            "INSPECAO=1, confira COD_SIM e VALORES_OBITO_EVOLUCAO contra o mapa-sinan.json "
-            "e o log da inspeção. Nada será fixado sem verificação."
-        )
+        sys.exit("PARADO POR SEGURANÇA: codificações não confirmadas.")
     ftp = conectar()
     mapa, lacunas, _ = localizar_arquivos(ftp)
     meta = carregar_json(ARQ_META, {"hashes": {}})
     agregado = carregar_json(ARQ_AGREGADO, {
-        "schemaVersion": "1.0",
+        "schemaVersion": "1.1",
         "fonte": "SINAN/Ministério da Saúde (DATASUS) — agravos relacionados ao trabalho",
         "series": {},
     })
@@ -261,44 +253,55 @@ def modo_normal():
 
     for (agravo, ano), (caminho, status) in sorted(mapa.items()):
         chave = f"{agravo}-{ano}"
-        # Re-baixa anos preliminares; anos finais já processados são pulados por hash
+        campo_mun = CAMPO_MUNICIPIO.get(agravo, MUNICIPIO_PADRAO)
+        cod_obito = CODIGO_OBITO_POR_AGRAVO.get(agravo)
+
         hash_previo = meta["hashes"].get(chave)
-        df, h, _ = baixar_dbc(ftp, caminho)
+        colunas = [campo_mun, "MUN_EMP", "EVOLUCAO",
+                   CAMPO_FILTRO.get(agravo), CAMPO_CAT.get(agravo)]
+        colunas = [c for c in colunas if c]
+        df, h, _ = baixar_dbc(ftp, caminho, colunas_necessarias=colunas)
         if hash_previo == h and status == "final":
             log(f"{chave}: sem mudança (final). Pulado.")
             continue
 
         # Filtro ocupacional apenas nas fichas gerais (IEXO, VIOL);
-        # os demais agravos são notificações específicas de ST — sem filtro.
+        # os demais agravos são fichas específicas de ST — sem filtro.
         subnotif = None
         if agravo in CAMPO_FILTRO:
             campo_f = CAMPO_FILTRO[agravo]
             if campo_f not in df.columns:
-                sys.exit(f"ERRO {chave}: campo de filtro {campo_f} inexistente. Colunas: {list(df.columns)}")
+                sys.exit(f"ERRO {chave}: campo de filtro {campo_f} inexistente. "
+                         f"Colunas: {list(df.columns)}")
             df = df[df[campo_f].str.strip() == COD_SIM].copy()
             campo_cat = CAMPO_CAT[agravo]
             if campo_cat in df.columns:
-                subnotif = df[df[campo_cat].str.strip() != COD_SIM]
+                subnotif = df[df[campo_cat].str.strip() == VALOR_CAT_NAO_EMITIDA]
 
-        campo_mun = CAMPO_MUNICIPIO.get(agravo, MUNICIPIO_PADRAO)
         if campo_mun not in df.columns:
-            sys.exit(f"ERRO {chave}: campo de município {campo_mun} inexistente. Colunas: {list(df.columns)}")
+            sys.exit(f"ERRO {chave}: campo de município {campo_mun} inexistente. "
+                     f"Colunas: {list(df.columns)}")
         campo_mun_por_agravo[agravo] = campo_mun
         if "MUN_EMP" in df.columns:
             preench_mun_emp[chave] = taxa_preenchimento(df, "MUN_EMP")
 
-        df["_obito"] = eh_obito(df).astype(int)
-        grupo = df.groupby(campo_mun, dropna=False).agg(
+        df["_mun"] = rotulo_municipio(df[campo_mun])
+        if cod_obito is not None and "EVOLUCAO" in df.columns:
+            df["_obito"] = (df["EVOLUCAO"].str.strip() == cod_obito).astype(int)
+        else:
+            df["_obito"] = 0
+
+        grupo = df.groupby("_mun", dropna=False).agg(
             notificacoes=("_obito", "size"), obitos=("_obito", "sum")
         ).reset_index()
 
         linhas = [
             {
-                "municipio": str(l[campo_mun]),
+                "municipio": str(l["_mun"]),
                 "agravo": agravo,
                 "ano": ano,
                 "notificacoes": int(l["notificacoes"]),
-                "obitos": int(l["obitos"]),
+                "obitos": (int(l["obitos"]) if cod_obito is not None else None),
                 "preliminar": status == "preliminar",
                 "campoMunicipio": campo_mun,
                 "fonte": "SINAN/MS",
@@ -306,14 +309,16 @@ def modo_normal():
             for _, l in grupo.iterrows()
         ]
         if subnotif is not None and len(subnotif) > 0:
-            sub_grupo = subnotif.groupby(campo_mun, dropna=False).size().reset_index(name="n")
+            sub = subnotif.copy()
+            sub["_mun"] = rotulo_municipio(sub[campo_mun])
+            sub_grupo = sub.groupby("_mun", dropna=False).size().reset_index(name="n")
             for _, l in sub_grupo.iterrows():
                 linhas.append({
-                    "municipio": str(l[campo_mun]),
+                    "municipio": str(l["_mun"]),
                     "agravo": agravo,
                     "ano": ano,
                     "indicador": "subnotificacao_intra_registro",
-                    "definicao": "casos ocupacionais confirmados sem CAT emitida",
+                    "definicao": "filtro ocupacional positivo e CAT nao emitida (codigo 2 - Nao)",
                     "casos": int(l["n"]),
                     "preliminar": status == "preliminar",
                     "campoMunicipio": campo_mun,
@@ -323,7 +328,8 @@ def modo_normal():
         agregado["series"][chave] = linhas
         meta["hashes"][chave] = h
         status_por_ano[chave] = status
-        log(f"{chave} ({status}): {len(grupo)} municípios agregados.")
+        log(f"{chave} ({status}): {len(grupo)} municípios agregados"
+            + ("" if cod_obito is not None else " — óbitos: null (ficha sem campo de óbito)"))
 
     ftp.quit()
     meta.update({
@@ -335,6 +341,19 @@ def modo_normal():
         "camposFiltro": CAMPO_FILTRO,
         "campoMunicipioPorAgravo": campo_mun_por_agravo,
         "preenchimentoMUN_EMP": preench_mun_emp,
+        "definicoes": {
+            "codificacaoSim": COD_SIM,
+            "obito": "EVOLUCAO igual ao código de óbito PELO agravo específico "
+                     "(ACGR/ACBI=5; LERD/PAIR/DERM/PNEU/MENT/CANC=6; IEXO=3), "
+                     "conforme dicionários SINAN NET v5.0; óbitos por outra causa não contam.",
+            "obitoVIOL": "null — a ficha de violência (dicionário v5.0/5.1) não possui campo "
+                         "de evolução/óbito; valores residuais no microdado (>99% vazios) não "
+                         "são confiáveis. Óbitos por violência: consultar o SIM.",
+            "subnotificacaoIntraRegistro": "filtro ocupacional positivo E CAT/REL_CAT = 2 (Não). "
+                                           "Definição estrita: exclui 'não se aplica' (3/8) e "
+                                           "'ignorado' (9).",
+            "municipio": "código IBGE de 6 dígitos conforme a fonte; vazio = IGNORADO",
+        },
     })
     os.makedirs(DOCS, exist_ok=True)
     with open(ARQ_AGREGADO, "w", encoding="utf-8") as f:
