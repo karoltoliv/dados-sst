@@ -1,25 +1,26 @@
 # -*- coding: utf-8 -*-
 """
-agrega_cat.py (v2) — Pipeline CAT/INSS em DOIS NÍVEIS de arquivo.
-Reestruturação de 17/08/2026 (Bloco C1): o arquivo nacional único de detalhe
-fino excedia 50 MB e inviabilizava o consumo em navegador móvel.
+agrega_cat.py (v3) — Pipeline CAT/INSS: dois níveis + nacional particionado.
+Bloco C3 (17/08/2026): o nível nacional passa a ser particionado POR ANO em
+formato compacto (campos declarados uma vez; registros como arrays).
 
 SAÍDA:
-- docs/cat_nacional.json — 1 registro por município × mês (soma de todas as
-  seções CNAE). Campos: municipioEmpregador, ufEmpregador, mes, totalCat,
-  totalObitos. Leve, baixado sempre pelo app.
-- docs/cat_uf/[SIGLA].json — 27 arquivos, detalhe por município × mês ×
-  seção CNAE daquela UF (campos do schema 1.1, sem renomear). Baixado sob
-  demanda quando a UF é selecionada.
-- docs/cat_meta.json — inclui tamanho em bytes de cada arquivo gerado.
+- docs/cat_nacional/[AAAA].json — um por ano presente nos dados; formato:
+  {"ano": 2024, "campos": ["municipioEmpregador","ufEmpregador","mes",
+   "totalCat","totalObitos"], "registros": [["Palmas","TO","2024-01",12,0], ...]}
+- docs/cat_uf/[NOME].json — 27 UFs + ZERADO (INALTERADO: schema 1.1).
+- docs/cat_index.json — "nacionalPorAno": mapa ano -> {arquivo, bytes};
+  o app descobre os arquivos pelo índice, sem lista fixa no código.
+- docs/cat_meta.json — tamanhos em bytes de tudo.
 
+Nota: a fonte não possui 2022 (PDA inicia em jun/2023); os anos são
+derivados dos dados, dinamicamente.
+
+MIGRAÇÃO: carrega o nacional de cat_nacional/[AAAA].json (novo formato),
+ou do legado cat_nacional.json (v2), ou reconstrói do zero se nada existir.
+Arquivos legados (cat_agregado.json, cat_nacional.json) são removidos.
 Regras preservadas: mês = data do acidente; somar linhas de mesma chave;
-UF desambigua município homônimo; avisos de cobertura parcial (2023 inicial;
-set–dez/2024; nov–dez/2025); nenhum dado fictício.
-
-MIGRAÇÃO: se docs/cat_nacional.json não existir, refaz a série completa
-(reprocessa todos os meses) e remove o obsoleto docs/cat_agregado.json.
-Arquivos gravados MINIFICADOS (sem indentação).
+avisos de cobertura; sanidade nacional×UFs; nenhum dado fictício.
 """
 
 import csv
@@ -52,6 +53,8 @@ MAPA_COLUNAS = {
 }
 VALOR_OBITO = "Sim"
 
+CAMPOS_NACIONAL = ["municipioEmpregador", "ufEmpregador", "mes", "totalCat", "totalObitos"]
+
 AVISOS_COBERTURA = [
     "Série inicia em jun/2023: o ano de 2023 é estruturalmente incompleto.",
     "Subcobertura da fonte identificada: set-dez/2024 e nov-dez/2025 (filtro de ano na extração do PDA).",
@@ -71,11 +74,12 @@ SIGLAS = {
 
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
 DIR_UF = os.path.join(DOCS, "cat_uf")
-ARQ_NACIONAL = os.path.join(DOCS, "cat_nacional.json")
+DIR_NACIONAL = os.path.join(DOCS, "cat_nacional")
 ARQ_META = os.path.join(DOCS, "cat_meta.json")
 ARQ_INDEX = os.path.join(DOCS, "cat_index.json")
 ARQ_INSPECAO = os.path.join(DOCS, "inspecao_cat.json")
-ARQ_OBSOLETO = os.path.join(DOCS, "cat_agregado.json")
+ARQ_LEGADO_V1 = os.path.join(DOCS, "cat_agregado.json")   # 50 MB original
+ARQ_LEGADO_V2 = os.path.join(DOCS, "cat_nacional.json")   # nacional único da v2
 
 
 def secao_cnae(codigo: str) -> str:
@@ -101,8 +105,6 @@ def log(msg: str) -> None:
 
 
 def sigla_uf(valor: str) -> str:
-    """Normaliza o valor da UF para nome de arquivo: maiúsculas, sem acentos,
-    só letras/números. Vazio/nulo vira IGNORADO. Não presume formato da fonte."""
     s = str(valor).strip()
     if not s or s.lower() in ("nan", "none", "{ñ class}"):
         return "IGNORADO"
@@ -190,8 +192,6 @@ def modo_inspecao():
         "recursoMaisRecente": {"url": zips[-1].get("url"), "competencia": chave(zips[-1])},
         "arquivoCSV": nome_csv, "encodingDetectado": enc, "separadorDetectado": sep,
         "colunasReais": list(df.columns), "totalLinhas": int(len(df)),
-        "valoresUFDistintos": sorted(df[MAPA_COLUNAS["uf_empregador"]].unique().tolist())[:40]
-        if MAPA_COLUNAS["uf_empregador"] in df.columns else "COLUNA INEXISTENTE",
     }
     os.makedirs(DOCS, exist_ok=True)
     with open(ARQ_INSPECAO, "w", encoding="utf-8") as f:
@@ -213,22 +213,46 @@ def gravar_minificado(caminho, obj):
     return os.path.getsize(caminho)
 
 
+def carregar_nacional_existente():
+    """Carrega o índice nacional em memória a partir do formato mais novo
+    disponível: partições por ano (v3) > arquivo único (v2) > vazio."""
+    idx = {}
+    if os.path.isdir(DIR_NACIONAL):
+        for nome in sorted(os.listdir(DIR_NACIONAL)):
+            if not nome.endswith(".json"):
+                continue
+            dado = carregar_json(os.path.join(DIR_NACIONAL, nome), {})
+            campos = dado.get("campos", CAMPOS_NACIONAL)
+            for reg in dado.get("registros", []):
+                d = dict(zip(campos, reg))
+                idx[(d["municipioEmpregador"], d["ufEmpregador"], d["mes"])] = \
+                    [int(d["totalCat"]), int(d["totalObitos"])]
+        if idx:
+            return idx, "partições por ano (v3)"
+    if os.path.exists(ARQ_LEGADO_V2):
+        dado = carregar_json(ARQ_LEGADO_V2, {})
+        for r in dado.get("registros", []):
+            idx[(r["municipioEmpregador"], r["ufEmpregador"], r["mes"])] = \
+                [int(r["totalCat"]), int(r["totalObitos"])]
+        if idx:
+            return idx, "arquivo único legado (v2)"
+    return idx, "vazio (reconstrução completa)"
+
+
 def modo_normal():
     if not COLUNAS_CONFIRMADAS:
         sys.exit("PARADO POR SEGURANÇA: colunas não confirmadas.")
     zips, chave = listar_recursos()
     meta = carregar_json(ARQ_META, {})
 
-    reconstrucao = not os.path.exists(ARQ_NACIONAL)
+    nacional_idx, origem_nac = carregar_nacional_existente()
+    reconstrucao = not nacional_idx
     if reconstrucao:
-        log("MIGRAÇÃO: cat_nacional.json não existe — refazendo a série completa (todos os meses).")
+        log("MIGRAÇÃO: nenhum nacional existente — refazendo a série completa.")
         meta["ultimoMesProcessado"] = None
-        nacional_idx = {}
         uf_series = defaultdict(lambda: defaultdict(list))
     else:
-        nac = carregar_json(ARQ_NACIONAL, {"registros": []})
-        nacional_idx = {(r["municipioEmpregador"], r["ufEmpregador"], r["mes"]):
-                        [r["totalCat"], r["totalObitos"]] for r in nac.get("registros", [])}
+        log(f"Nacional carregado de: {origem_nac} ({len(nacional_idx)} chaves).")
         uf_series = defaultdict(lambda: defaultdict(list))
         if os.path.isdir(DIR_UF):
             for nome in os.listdir(DIR_UF):
@@ -239,12 +263,13 @@ def modo_normal():
 
     pendentes = [r for r in zips
                  if meta.get("ultimoMesProcessado") is None or chave(r) > meta["ultimoMesProcessado"]]
+    indice_atual = carregar_json(ARQ_INDEX, {})
     if not pendentes:
-        if os.path.exists(ARQ_INDEX):
-            log("Nenhum recurso novo e índice já existe. Nada a fazer.")
+        if os.path.isdir(DIR_NACIONAL) and "nacionalPorAno" in indice_atual:
+            log("Nenhum recurso novo e estrutura C3 já existe. Nada a fazer.")
             return
-        log("Nenhum recurso novo, mas cat_index.json ainda não existe — "
-            "regravando saídas a partir dos dados carregados e gerando o índice.")
+        log("Nenhum recurso novo, mas a estrutura C3 (partições por ano + índice) "
+            "ainda não existe — regravando saídas a partir dos dados carregados.")
     else:
         log(f"{len(pendentes)} arquivo(s) mensal(is) a processar.")
 
@@ -276,14 +301,13 @@ def modo_normal():
                 "secaoCNAE": l["_secao"], "cat": int(l["cat"]),
                 "obitos": int(l["obitos"]), "fonte": "CAT/INSS",
             })
-            chave_nac = (mun, uf_bruta, mes)
-            atual = nacional_idx.setdefault(chave_nac, [0, 0])
+            atual = nacional_idx.setdefault((mun, uf_bruta, mes), [0, 0])
             atual[0] += int(l["cat"])
             atual[1] += int(l["obitos"])
         meta["ultimoMesProcessado"] = competencia
         log(f"Competência {competencia}: {len(grupo)} linhas de detalhe processadas ({metodo}).")
 
-    # ---- gravação dos dois níveis ----
+    # ---- nível de detalhe por UF (INALTERADO) ----
     os.makedirs(DIR_UF, exist_ok=True)
     tamanhos = {}
     total_uf_cat = 0
@@ -291,26 +315,37 @@ def modo_normal():
         obj = {"schemaVersion": "1.1", "uf": sig,
                "fonte": "CAT/INSS (dados abertos, CC-BY)",
                "cobertura": AVISOS_COBERTURA, "series": series}
-        caminho = os.path.join(DIR_UF, f"{sig}.json")
-        tamanhos[f"cat_uf/{sig}.json"] = gravar_minificado(caminho, obj)
+        tamanhos[f"cat_uf/{sig}.json"] = gravar_minificado(
+            os.path.join(DIR_UF, f"{sig}.json"), obj)
         total_uf_cat += sum(l["cat"] for linhas in series.values() for l in linhas)
 
-    registros = [{"municipioEmpregador": k[0], "ufEmpregador": k[1], "mes": k[2],
-                  "totalCat": v[0], "totalObitos": v[1]}
-                 for k, v in sorted(nacional_idx.items(), key=lambda x: (x[0][2], x[0][1], x[0][0]))]
-    total_nacional_cat = sum(r["totalCat"] for r in registros)
-    obj_nacional = {"schemaVersion": "2.0",
-                    "fonte": "CAT/INSS (dados abertos, CC-BY)",
-                    "cobertura": AVISOS_COBERTURA,
-                    "dataProcessamento": datetime.now(timezone.utc).isoformat(),
-                    "registros": registros}
-    tamanhos["cat_nacional.json"] = gravar_minificado(ARQ_NACIONAL, obj_nacional)
+    # ---- nível nacional: partições por ano, formato compacto (C3) ----
+    os.makedirs(DIR_NACIONAL, exist_ok=True)
+    por_ano = defaultdict(list)
+    for (mun, uf, mes), (tc, to) in sorted(nacional_idx.items(),
+                                           key=lambda x: (x[0][2], x[0][1], x[0][0])):
+        por_ano[mes[:4]].append([mun, uf, mes, tc, to])
+    agora = datetime.now(timezone.utc).isoformat()
+    total_nacional_cat = 0
+    nacional_por_ano_idx = {}
+    for ano in sorted(por_ano):
+        obj = {"ano": int(ano), "schemaVersion": "2.1",
+               "fonte": "CAT/INSS (dados abertos, CC-BY)",
+               "cobertura": AVISOS_COBERTURA, "dataProcessamento": agora,
+               "campos": CAMPOS_NACIONAL, "registros": por_ano[ano]}
+        caminho_rel = f"cat_nacional/{ano}.json"
+        b = gravar_minificado(os.path.join(DOCS, caminho_rel), obj)
+        tamanhos[caminho_rel] = b
+        nacional_por_ano_idx[ano] = {"arquivo": caminho_rel, "bytes": b}
+        total_nacional_cat += sum(r[3] for r in por_ano[ano])
 
-    if os.path.exists(ARQ_OBSOLETO):
-        os.remove(ARQ_OBSOLETO)
-        log("Removido arquivo obsoleto docs/cat_agregado.json (substituído pelos dois níveis).")
+    # remover legados
+    for legado in (ARQ_LEGADO_V1, ARQ_LEGADO_V2):
+        if os.path.exists(legado):
+            os.remove(legado)
+            log(f"Removido arquivo legado {os.path.basename(legado)}.")
 
-    # ---- índice publicado (padrão viewconf): o app lê isto primeiro ----
+    # ---- índice publicado (viewconf): o app lê isto primeiro ----
     ufs_index, nao_mapeadas = {}, {}
     for sig_nome in sorted(uf_series.keys()):
         entrada = {"arquivo": f"cat_uf/{sig_nome}.json",
@@ -320,15 +355,14 @@ def modo_normal():
         elif sig_nome in ("ZERADO", "IGNORADO"):
             ufs_index["semUF"] = entrada
         else:
-            nao_mapeadas[sig_nome] = entrada  # aparece no índice para verificação
+            nao_mapeadas[sig_nome] = entrada
     indice = {
-        "schemaVersion": "1.0",
-        "dataAtualizacao": datetime.now(timezone.utc).isoformat(),
+        "schemaVersion": "1.1",
+        "dataAtualizacao": agora,
         "fonte": "CAT/INSS (dados abertos, CC-BY)",
         "cobertura": AVISOS_COBERTURA,
-        "nacional": {"arquivo": "cat_nacional.json",
-                     "bytes": tamanhos.get("cat_nacional.json", 0),
-                     "schemaVersion": "2.0"},
+        "nacionalPorAno": nacional_por_ano_idx,
+        "camposNacional": CAMPOS_NACIONAL,
         "ufs": ufs_index,
         "ufsNaoMapeadas": nao_mapeadas,
         "meta": {"arquivo": "cat_meta.json"},
@@ -337,17 +371,17 @@ def modo_normal():
         json.dump(indice, f, ensure_ascii=False, indent=2)
     tamanhos["cat_index.json"] = os.path.getsize(ARQ_INDEX)
     if nao_mapeadas:
-        log(f"ATENÇÃO: valores de UF fora do mapa oficial: {sorted(nao_mapeadas.keys())} "
-            "(registrados em ufsNaoMapeadas no índice).")
+        log(f"ATENÇÃO: valores de UF fora do mapa oficial: {sorted(nao_mapeadas.keys())}")
 
     meta.update({
-        "schemaVersion": "2.0 (nacional) + 1.1 (detalhe por UF)",
-        "dataProcessamento": datetime.now(timezone.utc).isoformat(),
+        "schemaVersion": "2.1 (nacional por ano, compacto) + 1.1 (detalhe por UF)",
+        "dataProcessamento": agora,
         "fonte": "INSS — Comunicações de Acidente de Trabalho (dados abertos)",
         "licenca": "CC-BY", "url": CKAN_PACKAGE_SHOW,
         "metodoMesPorCompetencia": metodos_mes,
         "avisosCobertura": AVISOS_COBERTURA,
         "ufsGeradas": sorted(uf_series.keys()),
+        "anosNacional": sorted(por_ano.keys()),
         "tamanhoArquivosBytes": tamanhos,
         "sanidade": {"totalCatNacional": total_nacional_cat, "somaTotalCatUFs": total_uf_cat,
                      "iguais": total_nacional_cat == total_uf_cat},
@@ -355,10 +389,17 @@ def modo_normal():
     with open(ARQ_META, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
-    # ---- relatório de tamanhos no log ----
-    log("=== TAMANHOS DOS ARQUIVOS GERADOS ===")
+    log("=== TAMANHOS — NACIONAL POR ANO ===")
+    total_nac_bytes = 0
+    for ano in sorted(nacional_por_ano_idx):
+        b = nacional_por_ano_idx[ano]["bytes"]
+        total_nac_bytes += b
+        log(f"  cat_nacional/{ano}.json: {b/1048576:.2f} MB")
+    log(f"  TOTAL nacional (todos os anos): {total_nac_bytes/1048576:.2f} MB")
+    log("=== TAMANHOS — DEMAIS ARQUIVOS ===")
     for nome, b in sorted(tamanhos.items()):
-        log(f"  {nome}: {b/1048576:.2f} MB")
+        if not nome.startswith("cat_nacional/"):
+            log(f"  {nome}: {b/1048576:.2f} MB")
     log(f"UFs geradas ({len(uf_series)}): {', '.join(sorted(uf_series.keys()))}")
     log(f"Sanidade: total nacional CAT = {total_nacional_cat} | soma das UFs = {total_uf_cat} | "
         f"{'OK' if total_nacional_cat == total_uf_cat else 'DIVERGÊNCIA!'}")
