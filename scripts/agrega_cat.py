@@ -58,10 +58,22 @@ AVISOS_COBERTURA = [
     "Meses recentes são parciais por natureza (série administrativa com defasagem irregular).",
 ]
 
+# Mapa oficial nome-normalizado -> sigla (IBGE), para o índice publicado.
+SIGLAS = {
+    "ACRE": "AC", "ALAGOAS": "AL", "AMAPA": "AP", "AMAZONAS": "AM", "BAHIA": "BA",
+    "CEARA": "CE", "DISTRITOFEDERAL": "DF", "ESPIRITOSANTO": "ES", "GOIAS": "GO",
+    "MARANHAO": "MA", "MATOGROSSO": "MT", "MATOGROSSODOSUL": "MS", "MINASGERAIS": "MG",
+    "PARA": "PA", "PARAIBA": "PB", "PARANA": "PR", "PERNAMBUCO": "PE", "PIAUI": "PI",
+    "RIODEJANEIRO": "RJ", "RIOGRANDEDONORTE": "RN", "RIOGRANDEDOSUL": "RS",
+    "RONDONIA": "RO", "RORAIMA": "RR", "SANTACATARINA": "SC", "SAOPAULO": "SP",
+    "SERGIPE": "SE", "TOCANTINS": "TO",
+}
+
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
 DIR_UF = os.path.join(DOCS, "cat_uf")
 ARQ_NACIONAL = os.path.join(DOCS, "cat_nacional.json")
 ARQ_META = os.path.join(DOCS, "cat_meta.json")
+ARQ_INDEX = os.path.join(DOCS, "cat_index.json")
 ARQ_INSPECAO = os.path.join(DOCS, "inspecao_cat.json")
 ARQ_OBSOLETO = os.path.join(DOCS, "cat_agregado.json")
 
@@ -228,9 +240,13 @@ def modo_normal():
     pendentes = [r for r in zips
                  if meta.get("ultimoMesProcessado") is None or chave(r) > meta["ultimoMesProcessado"]]
     if not pendentes:
-        log("Nenhum recurso novo. Nada a fazer.")
-        return
-    log(f"{len(pendentes)} arquivo(s) mensal(is) a processar.")
+        if os.path.exists(ARQ_INDEX):
+            log("Nenhum recurso novo e índice já existe. Nada a fazer.")
+            return
+        log("Nenhum recurso novo, mas cat_index.json ainda não existe — "
+            "regravando saídas a partir dos dados carregados e gerando o índice.")
+    else:
+        log(f"{len(pendentes)} arquivo(s) mensal(is) a processar.")
 
     metodos_mes = meta.get("metodoMesPorCompetencia", {})
     c = MAPA_COLUNAS
@@ -293,6 +309,36 @@ def modo_normal():
     if os.path.exists(ARQ_OBSOLETO):
         os.remove(ARQ_OBSOLETO)
         log("Removido arquivo obsoleto docs/cat_agregado.json (substituído pelos dois níveis).")
+
+    # ---- índice publicado (padrão viewconf): o app lê isto primeiro ----
+    ufs_index, nao_mapeadas = {}, {}
+    for sig_nome in sorted(uf_series.keys()):
+        entrada = {"arquivo": f"cat_uf/{sig_nome}.json",
+                   "bytes": tamanhos.get(f"cat_uf/{sig_nome}.json", 0)}
+        if sig_nome in SIGLAS:
+            ufs_index[SIGLAS[sig_nome]] = entrada
+        elif sig_nome in ("ZERADO", "IGNORADO"):
+            ufs_index["semUF"] = entrada
+        else:
+            nao_mapeadas[sig_nome] = entrada  # aparece no índice para verificação
+    indice = {
+        "schemaVersion": "1.0",
+        "dataAtualizacao": datetime.now(timezone.utc).isoformat(),
+        "fonte": "CAT/INSS (dados abertos, CC-BY)",
+        "cobertura": AVISOS_COBERTURA,
+        "nacional": {"arquivo": "cat_nacional.json",
+                     "bytes": tamanhos.get("cat_nacional.json", 0),
+                     "schemaVersion": "2.0"},
+        "ufs": ufs_index,
+        "ufsNaoMapeadas": nao_mapeadas,
+        "meta": {"arquivo": "cat_meta.json"},
+    }
+    with open(ARQ_INDEX, "w", encoding="utf-8") as f:
+        json.dump(indice, f, ensure_ascii=False, indent=2)
+    tamanhos["cat_index.json"] = os.path.getsize(ARQ_INDEX)
+    if nao_mapeadas:
+        log(f"ATENÇÃO: valores de UF fora do mapa oficial: {sorted(nao_mapeadas.keys())} "
+            "(registrados em ufsNaoMapeadas no índice).")
 
     meta.update({
         "schemaVersion": "2.0 (nacional) + 1.1 (detalhe por UF)",
