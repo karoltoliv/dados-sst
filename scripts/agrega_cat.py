@@ -1,25 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-agrega_cat.py — Pipeline CAT/INSS (dados abertos, licença CC-BY)
-App: Saúde, Trabalho & Território (TCC Fiocruz)
+agrega_cat.py (v2) — Pipeline CAT/INSS em DOIS NÍVEIS de arquivo.
+Reestruturação de 17/08/2026 (Bloco C1): o arquivo nacional único de detalhe
+fino excedia 50 MB e inviabilizava o consumo em navegador móvel.
 
-VERSÃO DESTRAVADA em 16/08/2026, após inspeção real do arquivo
-D.SDA.PDA.005.CAT.202605.csv (encoding latin-1, separador ';',
-valores com espaços à direita — largura fixa).
+SAÍDA:
+- docs/cat_nacional.json — 1 registro por município × mês (soma de todas as
+  seções CNAE). Campos: municipioEmpregador, ufEmpregador, mes, totalCat,
+  totalObitos. Leve, baixado sempre pelo app.
+- docs/cat_uf/[SIGLA].json — 27 arquivos, detalhe por município × mês ×
+  seção CNAE daquela UF (campos do schema 1.1, sem renomear). Baixado sob
+  demanda quando a UF é selecionada.
+- docs/cat_meta.json — inclui tamanho em bytes de cada arquivo gerado.
 
-REGRAS INVIOLÁVEIS (especificação de 15/08/2026):
-- Saída contém APENAS agregados: contagem de CAT e de óbitos por
-  município do empregador (com UF) × seção CNAE × mês. Nenhum microdado.
-- CAT e SINAN nunca se somam: este arquivo é série própria, com rótulo de fonte.
-- Nenhum dado fictício: onde algo não for reconhecido, o script para
-  com mensagem clara ou registra a limitação nos metadados — nunca estima.
+Regras preservadas: mês = data do acidente; somar linhas de mesma chave;
+UF desambigua município homônimo; avisos de cobertura parcial (2023 inicial;
+set–dez/2024; nov–dez/2025); nenhum dado fictício.
 
-VERIFICAÇÕES EM TEMPO DE EXECUÇÃO (ambiguidades reveladas pela inspeção):
-- Há DUAS colunas 'CNAE2.0 Empregador' (cabeçalho repetido na fonte);
-  o script testa o conteúdo e usa a que contém códigos numéricos.
-- O formato de 'Data Acidente' é detectado (dd/mm/aaaa ou aaaa-mm-dd);
-  se irreconhecível, usa-se a competência do arquivo e isso fica
-  registrado em cat_meta.json.
+MIGRAÇÃO: se docs/cat_nacional.json não existir, refaz a série completa
+(reprocessa todos os meses) e remove o obsoleto docs/cat_agregado.json.
+Arquivos gravados MINIFICADOS (sem indentação).
 """
 
 import csv
@@ -27,40 +27,45 @@ import io
 import json
 import os
 import sys
+import unicodedata
 import zipfile
+from collections import defaultdict
 from datetime import datetime, timezone
 
 import pandas as pd
 import requests
-
-# ----------------------------------------------------------------------
-# CONFIGURAÇÃO — confirmada pela inspeção de 16/08/2026
-# ----------------------------------------------------------------------
 
 CKAN_PACKAGE_SHOW = (
     "https://dadosabertos.inss.gov.br/api/3/action/package_show"
     "?id=comunicacoes-de-acidente-de-trabalho-cat-plano-de-dados-abertos-jun-2023-a-jun-2025"
 )
 
-COLUNAS_CONFIRMADAS = True  # inspeção de 16/08/2026 (docs/inspecao_cat.json)
+COLUNAS_CONFIRMADAS = True  # inspeção de 16/08/2026
 
 MAPA_COLUNAS = {
     "municipio_empregador": "Munic Empr",
     "uf_empregador": "UF Munic. Empregador",
-    "cnae_codigo": "CNAE2.0 Empregador",            # candidata 1 (testada em execução)
-    "cnae_codigo_alt": "CNAE2.0 Empregador.1",      # candidata 2 (testada em execução)
+    "cnae_codigo": "CNAE2.0 Empregador",
+    "cnae_codigo_alt": "CNAE2.0 Empregador.1",
     "indicador_obito": "Indica Óbito Acidente",
     "data_acidente": "Data Acidente",
 }
+VALOR_OBITO = "Sim"
 
-VALOR_OBITO = "Sim"  # confirmado: valores 'Sim'/'Não'/'{ñ class}'; só 'Sim' conta óbito
+AVISOS_COBERTURA = [
+    "Série inicia em jun/2023: o ano de 2023 é estruturalmente incompleto.",
+    "Subcobertura da fonte identificada: set-dez/2024 e nov-dez/2025 (filtro de ano na extração do PDA).",
+    "Meses recentes são parciais por natureza (série administrativa com defasagem irregular).",
+]
 
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
-ARQ_AGREGADO = os.path.join(DOCS, "cat_agregado.json")
+DIR_UF = os.path.join(DOCS, "cat_uf")
+ARQ_NACIONAL = os.path.join(DOCS, "cat_nacional.json")
 ARQ_META = os.path.join(DOCS, "cat_meta.json")
 ARQ_INSPECAO = os.path.join(DOCS, "inspecao_cat.json")
+ARQ_OBSOLETO = os.path.join(DOCS, "cat_agregado.json")
 
-# CNAE 2.0: divisão (2 dígitos) -> seção (classificação oficial IBGE)
+
 def secao_cnae(codigo: str) -> str:
     try:
         div = int(str(codigo).strip().replace(".", "").replace("-", "")[:2])
@@ -83,20 +88,31 @@ def log(msg: str) -> None:
     print(f"[agrega_cat] {msg}", flush=True)
 
 
+def sigla_uf(valor: str) -> str:
+    """Normaliza o valor da UF para nome de arquivo: maiúsculas, sem acentos,
+    só letras/números. Vazio/nulo vira IGNORADO. Não presume formato da fonte."""
+    s = str(valor).strip()
+    if not s or s.lower() in ("nan", "none", "{ñ class}"):
+        return "IGNORADO"
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+    s = "".join(ch for ch in s.upper() if ch.isalnum())
+    return s or "IGNORADO"
+
+
 def listar_recursos():
     r = requests.get(CKAN_PACKAGE_SHOW, timeout=60)
     r.raise_for_status()
     dados = r.json()
     if not dados.get("success"):
-        sys.exit("ERRO: package_show retornou success=false. Verificar id do dataset.")
-    recursos = dados["result"].get("resources", [])
-    zips = [x for x in recursos if str(x.get("url", "")).upper().endswith(".ZIP")]
+        sys.exit("ERRO: package_show retornou success=false.")
+    zips = [x for x in dados["result"].get("resources", [])
+            if str(x.get("url", "")).upper().endswith(".ZIP")]
     if not zips:
-        sys.exit("ERRO: nenhum recurso .ZIP listado no dataset. Verificar manualmente no portal.")
+        sys.exit("ERRO: nenhum recurso .ZIP no dataset.")
     def chave(rec):
         nome = rec.get("url", "") + rec.get("name", "")
-        digitos = [s for s in nome.replace(".", " ").split() if s.isdigit() and len(s) == 6]
-        return digitos[-1] if digitos else "000000"
+        d = [s for s in nome.replace(".", " ").split() if s.isdigit() and len(s) == 6]
+        return d[-1] if d else "000000"
     zips.sort(key=chave)
     return zips, chave
 
@@ -110,7 +126,6 @@ def baixar_csv(url: str):
     if not nomes_csv:
         sys.exit(f"ERRO: ZIP sem CSV. Conteúdo: {zf.namelist()}")
     bruto = zf.read(nomes_csv[0])
-    encoding_usado = None
     for enc in ("utf-8-sig", "utf-8", "latin-1"):
         try:
             texto = bruto.decode(enc)
@@ -118,15 +133,14 @@ def baixar_csv(url: str):
             break
         except UnicodeDecodeError:
             continue
-    if encoding_usado is None:
-        sys.exit("ERRO: não foi possível decodificar o CSV (utf-8/latin-1 falharam).")
+    else:
+        sys.exit("ERRO: não foi possível decodificar o CSV.")
     amostra = "\n".join(texto.splitlines()[:5])
     try:
         sep = csv.Sniffer().sniff(amostra, delimiters=";,|\t").delimiter
     except csv.Error:
         sep = ";"
     df = pd.read_csv(io.StringIO(texto), sep=sep, dtype=str)
-    # Largura fixa: limpar espaços em todas as células e nos nomes de colunas
     df.columns = [c.strip() if isinstance(c, str) else c for c in df.columns]
     for col in df.columns:
         df[col] = df[col].astype(str).str.strip()
@@ -134,8 +148,6 @@ def baixar_csv(url: str):
 
 
 def escolher_coluna_cnae(df):
-    """Duas colunas homônimas na fonte; usa a que contém códigos numéricos.
-    Verificação em tempo de execução — não presumimos qual é qual."""
     for col in (MAPA_COLUNAS["cnae_codigo"], MAPA_COLUNAS["cnae_codigo_alt"]):
         if col in df.columns:
             amostra = (df[col].dropna().astype(str).str.strip()
@@ -143,12 +155,10 @@ def escolher_coluna_cnae(df):
                        .str.replace("-", "", regex=False).head(200))
             if len(amostra) and amostra.str.match(r"^\d{2,}").mean() > 0.8:
                 return col
-    sys.exit("ERRO: nenhuma das colunas CNAE contém códigos numéricos em maioria. "
-             "Inspecionar os valores reais antes de prosseguir.")
+    sys.exit("ERRO: nenhuma coluna CNAE com códigos numéricos em maioria.")
 
 
 def derivar_mes(serie: pd.Series, competencia: str):
-    """Detecta o formato da data em execução. Retorna (série AAAA-MM, método)."""
     s = serie.astype(str).str.strip()
     m = s.str.extract(r"^(\d{2})/(\d{2})/(\d{4})")
     if m[0].notna().mean() > 0.8:
@@ -156,29 +166,21 @@ def derivar_mes(serie: pd.Series, competencia: str):
     m2 = s.str.extract(r"^(\d{4})-(\d{2})")
     if m2[0].notna().mean() > 0.8:
         return (m2[0] + "-" + m2[1]), "data_acidente aaaa-mm"
-    # Fallback declarado: competência do arquivo (registrado nos metadados)
     return pd.Series(f"{competencia[:4]}-{competencia[4:]}", index=serie.index), \
-        "FALLBACK: competência do arquivo (formato de data não reconhecido)"
+        "FALLBACK: competência do arquivo"
 
 
 def modo_inspecao():
     zips, chave = listar_recursos()
-    mais_recente = zips[-1]
-    df, nome_csv, enc, sep = baixar_csv(mais_recente["url"])
+    df, nome_csv, enc, sep = baixar_csv(zips[-1]["url"])
     achado = {
         "dataInspecao": datetime.now(timezone.utc).isoformat(),
-        "recursoMaisRecente": {"url": mais_recente.get("url"), "competencia": chave(mais_recente)},
-        "arquivoCSV": nome_csv,
-        "encodingDetectado": enc,
-        "separadorDetectado": sep,
-        "colunasReais": list(df.columns),
-        "totalLinhas": int(len(df)),
+        "recursoMaisRecente": {"url": zips[-1].get("url"), "competencia": chave(zips[-1])},
+        "arquivoCSV": nome_csv, "encodingDetectado": enc, "separadorDetectado": sep,
+        "colunasReais": list(df.columns), "totalLinhas": int(len(df)),
+        "valoresUFDistintos": sorted(df[MAPA_COLUNAS["uf_empregador"]].unique().tolist())[:40]
+        if MAPA_COLUNAS["uf_empregador"] in df.columns else "COLUNA INEXISTENTE",
     }
-    candidatas_obito = [c for c in df.columns if "OBITO" in c.upper() or "ÓBITO" in c.upper() or "MORTE" in c.upper()]
-    if candidatas_obito:
-        achado["colunasCandidatasObito"] = {
-            c: df[c].value_counts(dropna=False).head(10).to_dict() for c in candidatas_obito
-        }
     os.makedirs(DOCS, exist_ok=True)
     with open(ARQ_INSPECAO, "w", encoding="utf-8") as f:
         json.dump(achado, f, ensure_ascii=False, indent=2)
@@ -193,80 +195,127 @@ def carregar_json(caminho, padrao):
     return padrao
 
 
+def gravar_minificado(caminho, obj):
+    with open(caminho, "w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
+    return os.path.getsize(caminho)
+
+
 def modo_normal():
     if not COLUNAS_CONFIRMADAS:
         sys.exit("PARADO POR SEGURANÇA: colunas não confirmadas.")
     zips, chave = listar_recursos()
-    meta = carregar_json(ARQ_META, {"ultimoMesProcessado": None})
-    agregado = carregar_json(ARQ_AGREGADO, {
-        "schemaVersion": "1.1",
-        "fonte": "CAT/INSS (dados abertos, CC-BY)",
-        "series": {},
-    })
-    metodos_mes = {}
+    meta = carregar_json(ARQ_META, {})
 
-    pendentes = [r for r in zips if meta.get("ultimoMesProcessado") is None or chave(r) > meta["ultimoMesProcessado"]]
+    reconstrucao = not os.path.exists(ARQ_NACIONAL)
+    if reconstrucao:
+        log("MIGRAÇÃO: cat_nacional.json não existe — refazendo a série completa (todos os meses).")
+        meta["ultimoMesProcessado"] = None
+        nacional_idx = {}
+        uf_series = defaultdict(lambda: defaultdict(list))
+    else:
+        nac = carregar_json(ARQ_NACIONAL, {"registros": []})
+        nacional_idx = {(r["municipioEmpregador"], r["ufEmpregador"], r["mes"]):
+                        [r["totalCat"], r["totalObitos"]] for r in nac.get("registros", [])}
+        uf_series = defaultdict(lambda: defaultdict(list))
+        if os.path.isdir(DIR_UF):
+            for nome in os.listdir(DIR_UF):
+                if nome.endswith(".json"):
+                    dado = carregar_json(os.path.join(DIR_UF, nome), {})
+                    for mes, linhas in dado.get("series", {}).items():
+                        uf_series[nome[:-5]][mes] = linhas
+
+    pendentes = [r for r in zips
+                 if meta.get("ultimoMesProcessado") is None or chave(r) > meta["ultimoMesProcessado"]]
     if not pendentes:
         log("Nenhum recurso novo. Nada a fazer.")
         return
+    log(f"{len(pendentes)} arquivo(s) mensal(is) a processar.")
 
-    log(f"{len(pendentes)} arquivo(s) mensal(is) a processar. "
-        "No primeiro run isso cobre a série histórica completa — pode demorar.")
-
+    metodos_mes = meta.get("metodoMesPorCompetencia", {})
+    c = MAPA_COLUNAS
     for rec in pendentes:
         competencia = chave(rec)
         df, _, _, _ = baixar_csv(rec["url"])
-        obrigatorias = [MAPA_COLUNAS["municipio_empregador"], MAPA_COLUNAS["uf_empregador"],
-                        MAPA_COLUNAS["indicador_obito"], MAPA_COLUNAS["data_acidente"]]
-        faltando = [c for c in obrigatorias if c not in df.columns]
+        faltando = [x for x in (c["municipio_empregador"], c["uf_empregador"],
+                                c["indicador_obito"], c["data_acidente"]) if x not in df.columns]
         if faltando:
-            sys.exit(f"ERRO na competência {competencia}: colunas ausentes {faltando}. "
-                     f"Cabeçalho real: {list(df.columns)}. Reexecutar inspeção.")
+            sys.exit(f"ERRO {competencia}: colunas ausentes {faltando}. "
+                     f"Cabeçalho real: {list(df.columns)}.")
         col_cnae = escolher_coluna_cnae(df)
-        c = MAPA_COLUNAS
         df["_secao"] = df[col_cnae].map(secao_cnae)
         df["_mes"], metodo = derivar_mes(df[c["data_acidente"]], competencia)
         metodos_mes[competencia] = metodo
-        df["_obito"] = (df[c["indicador_obito"]].str.strip().str.casefold()
+        df["_obito"] = (df[c["indicador_obito"]].str.casefold()
                         == VALOR_OBITO.casefold()).astype(int)
 
         grupo = df.groupby(["_mes", c["municipio_empregador"], c["uf_empregador"], "_secao"],
                            dropna=False).agg(cat=("_obito", "size"),
                                              obitos=("_obito", "sum")).reset_index()
-
-        for mes, sub in grupo.groupby("_mes"):
-            linhas = agregado["series"].setdefault(str(mes), [])
-            linhas.extend([
-                {
-                    "municipioEmpregador": str(l[c["municipio_empregador"]]),
-                    "ufEmpregador": str(l[c["uf_empregador"]]),
-                    "secaoCNAE": l["_secao"],
-                    "cat": int(l["cat"]),
-                    "obitos": int(l["obitos"]),
-                    "fonte": "CAT/INSS",
-                }
-                for _, l in sub.iterrows()
-            ])
+        for _, l in grupo.iterrows():
+            mun, uf_bruta = str(l[c["municipio_empregador"]]), str(l[c["uf_empregador"]])
+            mes, sig = str(l["_mes"]), sigla_uf(l[c["uf_empregador"]])
+            uf_series[sig][mes].append({
+                "municipioEmpregador": mun, "ufEmpregador": uf_bruta,
+                "secaoCNAE": l["_secao"], "cat": int(l["cat"]),
+                "obitos": int(l["obitos"]), "fonte": "CAT/INSS",
+            })
+            chave_nac = (mun, uf_bruta, mes)
+            atual = nacional_idx.setdefault(chave_nac, [0, 0])
+            atual[0] += int(l["cat"])
+            atual[1] += int(l["obitos"])
         meta["ultimoMesProcessado"] = competencia
-        log(f"Competência {competencia}: {len(grupo)} linhas agregadas "
-            f"(mês × município × UF × seção CNAE); método do mês: {metodo}.")
+        log(f"Competência {competencia}: {len(grupo)} linhas de detalhe processadas ({metodo}).")
+
+    # ---- gravação dos dois níveis ----
+    os.makedirs(DIR_UF, exist_ok=True)
+    tamanhos = {}
+    total_uf_cat = 0
+    for sig, series in sorted(uf_series.items()):
+        obj = {"schemaVersion": "1.1", "uf": sig,
+               "fonte": "CAT/INSS (dados abertos, CC-BY)",
+               "cobertura": AVISOS_COBERTURA, "series": series}
+        caminho = os.path.join(DIR_UF, f"{sig}.json")
+        tamanhos[f"cat_uf/{sig}.json"] = gravar_minificado(caminho, obj)
+        total_uf_cat += sum(l["cat"] for linhas in series.values() for l in linhas)
+
+    registros = [{"municipioEmpregador": k[0], "ufEmpregador": k[1], "mes": k[2],
+                  "totalCat": v[0], "totalObitos": v[1]}
+                 for k, v in sorted(nacional_idx.items(), key=lambda x: (x[0][2], x[0][1], x[0][0]))]
+    total_nacional_cat = sum(r["totalCat"] for r in registros)
+    obj_nacional = {"schemaVersion": "2.0",
+                    "fonte": "CAT/INSS (dados abertos, CC-BY)",
+                    "cobertura": AVISOS_COBERTURA,
+                    "dataProcessamento": datetime.now(timezone.utc).isoformat(),
+                    "registros": registros}
+    tamanhos["cat_nacional.json"] = gravar_minificado(ARQ_NACIONAL, obj_nacional)
+
+    if os.path.exists(ARQ_OBSOLETO):
+        os.remove(ARQ_OBSOLETO)
+        log("Removido arquivo obsoleto docs/cat_agregado.json (substituído pelos dois níveis).")
 
     meta.update({
+        "schemaVersion": "2.0 (nacional) + 1.1 (detalhe por UF)",
         "dataProcessamento": datetime.now(timezone.utc).isoformat(),
         "fonte": "INSS — Comunicações de Acidente de Trabalho (dados abertos)",
-        "licenca": "CC-BY",
-        "url": CKAN_PACKAGE_SHOW,
-        "colunaCNAEUtilizada": "detectada por conteúdo em cada arquivo",
+        "licenca": "CC-BY", "url": CKAN_PACKAGE_SHOW,
         "metodoMesPorCompetencia": metodos_mes,
-        "observacaoMunicipio": "valor textual conforme a fonte (coluna 'Munic Empr'), "
-                               "acompanhado de 'UF Munic. Empregador'",
+        "avisosCobertura": AVISOS_COBERTURA,
+        "ufsGeradas": sorted(uf_series.keys()),
+        "tamanhoArquivosBytes": tamanhos,
+        "sanidade": {"totalCatNacional": total_nacional_cat, "somaTotalCatUFs": total_uf_cat,
+                     "iguais": total_nacional_cat == total_uf_cat},
     })
-    os.makedirs(DOCS, exist_ok=True)
-    with open(ARQ_AGREGADO, "w", encoding="utf-8") as f:
-        json.dump(agregado, f, ensure_ascii=False, indent=2)
     with open(ARQ_META, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
-    log("Agregados publicados em docs/cat_agregado.json e docs/cat_meta.json.")
+
+    # ---- relatório de tamanhos no log ----
+    log("=== TAMANHOS DOS ARQUIVOS GERADOS ===")
+    for nome, b in sorted(tamanhos.items()):
+        log(f"  {nome}: {b/1048576:.2f} MB")
+    log(f"UFs geradas ({len(uf_series)}): {', '.join(sorted(uf_series.keys()))}")
+    log(f"Sanidade: total nacional CAT = {total_nacional_cat} | soma das UFs = {total_uf_cat} | "
+        f"{'OK' if total_nacional_cat == total_uf_cat else 'DIVERGÊNCIA!'}")
 
 
 if __name__ == "__main__":
