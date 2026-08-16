@@ -1,17 +1,37 @@
 {
-  "schemaVersion": "1.0",
-  "dataAtualizacao": "2026-08-16T18:12:05.043211+00:00",
+  "schemaVersion": "1.1",
+  "dataAtualizacao": "2026-08-16T22:27:25.325758+00:00",
   "fonte": "CAT/INSS (dados abertos, CC-BY)",
   "cobertura": [
     "Série inicia em jun/2023: o ano de 2023 é estruturalmente incompleto.",
     "Subcobertura da fonte identificada: set-dez/2024 e nov-dez/2025 (filtro de ano na extração do PDA).",
     "Meses recentes são parciais por natureza (série administrativa com defasagem irregular)."
   ],
-  "nacional": {
-    "arquivo": "cat_nacional.json",
-    "bytes": 9470243,
-    "schemaVersion": "2.0"
+  "nacionalPorAno": {
+    "2023": {
+      "arquivo": "cat_nacional/2023.json",
+      "bytes": 1024018
+    },
+    "2024": {
+      "arquivo": "cat_nacional/2024.json",
+      "bytes": 1261440
+    },
+    "2025": {
+      "arquivo": "cat_nacional/2025.json",
+      "bytes": 1153809
+    },
+    "2026": {
+      "arquivo": "cat_nacional/2026.json",
+      "bytes": 592933
+    }
   },
+  "camposNacional": [
+    "municipioEmpregador",
+    "ufEmpregador",
+    "mes",
+    "totalCat",
+    "totalObitos"
+  ],
   "ufs": {
     "AC": {
       "arquivo": "cat_uf/ACRE.json",

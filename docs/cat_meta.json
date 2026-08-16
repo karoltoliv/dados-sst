@@ -1,6 +1,6 @@
 {
   "ultimoMesProcessado": "202605",
-  "dataProcessamento": "2026-08-16T18:12:05.043490+00:00",
+  "dataProcessamento": "2026-08-16T22:27:25.325758+00:00",
   "fonte": "INSS — Comunicações de Acidente de Trabalho (dados abertos)",
   "licenca": "CC-BY",
   "url": "https://dadosabertos.inss.gov.br/api/3/action/package_show?id=comunicacoes-de-acidente-de-trabalho-cat-plano-de-dados-abertos-jun-2023-a-jun-2025",
@@ -44,7 +44,7 @@
     "202605": "data_acidente dd/mm/aaaa"
   },
   "observacaoMunicipio": "valor textual conforme a fonte (coluna 'Munic Empr'), acompanhado de 'UF Munic. Empregador'",
-  "schemaVersion": "2.0 (nacional) + 1.1 (detalhe por UF)",
+  "schemaVersion": "2.1 (nacional por ano, compacto) + 1.1 (detalhe por UF)",
   "avisosCobertura": [
     "Série inicia em jun/2023: o ano de 2023 é estruturalmente incompleto.",
     "Subcobertura da fonte identificada: set-dez/2024 e nov-dez/2025 (filtro de ano na extração do PDA).",
@@ -109,12 +109,21 @@
     "cat_uf/SERGIPE.json": 271867,
     "cat_uf/TOCANTINS.json": 305227,
     "cat_uf/ZERADO.json": 84669,
-    "cat_nacional.json": 9470243,
-    "cat_index.json": 2960
+    "cat_nacional/2023.json": 1024018,
+    "cat_nacional/2024.json": 1261440,
+    "cat_nacional/2025.json": 1153809,
+    "cat_nacional/2026.json": 592933,
+    "cat_index.json": 3346
   },
   "sanidade": {
     "totalCatNacional": 1739703,
     "somaTotalCatUFs": 1739703,
     "iguais": true
-  }
+  },
+  "anosNacional": [
+    "2023",
+    "2024",
+    "2025",
+    "2026"
+  ]
 }
