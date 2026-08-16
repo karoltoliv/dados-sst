@@ -1,6 +1,6 @@
 {
   "ultimoMesProcessado": "202605",
-  "dataProcessamento": "2026-08-16T17:43:33.559809+00:00",
+  "dataProcessamento": "2026-08-16T18:12:05.043490+00:00",
   "fonte": "INSS — Comunicações de Acidente de Trabalho (dados abertos)",
   "licenca": "CC-BY",
   "url": "https://dadosabertos.inss.gov.br/api/3/action/package_show?id=comunicacoes-de-acidente-de-trabalho-cat-plano-de-dados-abertos-jun-2023-a-jun-2025",
@@ -109,7 +109,8 @@
     "cat_uf/SERGIPE.json": 271867,
     "cat_uf/TOCANTINS.json": 305227,
     "cat_uf/ZERADO.json": 84669,
-    "cat_nacional.json": 9470243
+    "cat_nacional.json": 9470243,
+    "cat_index.json": 2960
   },
   "sanidade": {
     "totalCatNacional": 1739703,

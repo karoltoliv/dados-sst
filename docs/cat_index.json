@@ -1,0 +1,133 @@
+{
+  "schemaVersion": "1.0",
+  "dataAtualizacao": "2026-08-16T18:12:05.043211+00:00",
+  "fonte": "CAT/INSS (dados abertos, CC-BY)",
+  "cobertura": [
+    "Série inicia em jun/2023: o ano de 2023 é estruturalmente incompleto.",
+    "Subcobertura da fonte identificada: set-dez/2024 e nov-dez/2025 (filtro de ano na extração do PDA).",
+    "Meses recentes são parciais por natureza (série administrativa com defasagem irregular)."
+  ],
+  "nacional": {
+    "arquivo": "cat_nacional.json",
+    "bytes": 9470243,
+    "schemaVersion": "2.0"
+  },
+  "ufs": {
+    "AC": {
+      "arquivo": "cat_uf/ACRE.json",
+      "bytes": 107109
+    },
+    "AL": {
+      "arquivo": "cat_uf/ALAGOAS.json",
+      "bytes": 341007
+    },
+    "AP": {
+      "arquivo": "cat_uf/AMAPA.json",
+      "bytes": 83303
+    },
+    "AM": {
+      "arquivo": "cat_uf/AMAZONAS.json",
+      "bytes": 213363
+    },
+    "BA": {
+      "arquivo": "cat_uf/BAHIA.json",
+      "bytes": 1703642
+    },
+    "CE": {
+      "arquivo": "cat_uf/CEARA.json",
+      "bytes": 1005308
+    },
+    "DF": {
+      "arquivo": "cat_uf/DISTRITOFEDERAL.json",
+      "bytes": 218398
+    },
+    "ES": {
+      "arquivo": "cat_uf/ESPIRITOSANTO.json",
+      "bytes": 1289929
+    },
+    "GO": {
+      "arquivo": "cat_uf/GOIAS.json",
+      "bytes": 1564164
+    },
+    "MA": {
+      "arquivo": "cat_uf/MARANHAO.json",
+      "bytes": 454130
+    },
+    "MT": {
+      "arquivo": "cat_uf/MATOGROSSO.json",
+      "bytes": 1390357
+    },
+    "MS": {
+      "arquivo": "cat_uf/MATOGROSSODOSUL.json",
+      "bytes": 1043765
+    },
+    "MG": {
+      "arquivo": "cat_uf/MINASGERAIS.json",
+      "bytes": 6194151
+    },
+    "PA": {
+      "arquivo": "cat_uf/PARA.json",
+      "bytes": 982126
+    },
+    "PB": {
+      "arquivo": "cat_uf/PARAIBA.json",
+      "bytes": 441721
+    },
+    "PR": {
+      "arquivo": "cat_uf/PARANA.json",
+      "bytes": 4048063
+    },
+    "PE": {
+      "arquivo": "cat_uf/PERNAMBUCO.json",
+      "bytes": 1137241
+    },
+    "PI": {
+      "arquivo": "cat_uf/PIAUI.json",
+      "bytes": 254848
+    },
+    "RJ": {
+      "arquivo": "cat_uf/RIODEJANEIRO.json",
+      "bytes": 2547775
+    },
+    "RN": {
+      "arquivo": "cat_uf/RIOGRANDEDONORTE.json",
+      "bytes": 494205
+    },
+    "RS": {
+      "arquivo": "cat_uf/RIOGRANDEDOSUL.json",
+      "bytes": 4413126
+    },
+    "RO": {
+      "arquivo": "cat_uf/RONDONIA.json",
+      "bytes": 463066
+    },
+    "RR": {
+      "arquivo": "cat_uf/RORAIMA.json",
+      "bytes": 93710
+    },
+    "SC": {
+      "arquivo": "cat_uf/SANTACATARINA.json",
+      "bytes": 4024668
+    },
+    "SP": {
+      "arquivo": "cat_uf/SAOPAULO.json",
+      "bytes": 12757567
+    },
+    "SE": {
+      "arquivo": "cat_uf/SERGIPE.json",
+      "bytes": 271867
+    },
+    "TO": {
+      "arquivo": "cat_uf/TOCANTINS.json",
+      "bytes": 305227
+    },
+    "semUF": {
+      "arquivo": "cat_uf/ZERADO.json",
+      "bytes": 84669
+    }
+  },
+  "ufsNaoMapeadas": {},
+  "meta": {
+    "arquivo": "cat_meta.json"
+  }
+}
