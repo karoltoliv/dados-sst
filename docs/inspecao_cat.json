@@ -1,0 +1,48 @@
+{
+  "dataInspecao": "2026-08-16T12:25:08.069170+00:00",
+  "recursoMaisRecente": {
+    "url": "https://armazenamento-dadosabertos.s3.sa-east-1.amazonaws.com/PDA_2025_2027/Grupos_de_dados/Comunica%C3%A7%C3%B5es+de+Acidente+de+Trabalho+%E2%80%93+CAT/D.SDA.PDA.005.CAT.202605.ZIP",
+    "competencia": "202605"
+  },
+  "arquivoCSV": "D.SDA.PDA.005.CAT.202605.csv",
+  "encodingDetectado": "latin-1",
+  "separadorDetectado": ";",
+  "colunasReais": [
+    "Agente  Causador  Acidente",
+    "Data Acidente",
+    "CBO",
+    "CBO.1",
+    "CID-10",
+    "CID-10.1",
+    "CNAE2.0 Empregador",
+    "CNAE2.0 Empregador.1",
+    "Emitente CAT",
+    "Espécie do benefício",
+    "Filiação Segurado",
+    "Indica Óbito Acidente",
+    "Munic Empr",
+    "Natureza da Lesão",
+    "Origem de Cadastramento CAT",
+    "Parte Corpo Atingida",
+    "Sexo",
+    "Tipo do Acidente",
+    "UF  Munic.  Acidente",
+    "UF Munic. Empregador",
+    "Data  Afastamento",
+    "Data Despacho Benefício",
+    "Data Acidente.1",
+    "Data Nascimento",
+    "Data Emissão CAT",
+    "Tipo de Empregador",
+    "CNPJ/CEI Empregador"
+  ],
+  "totalLinhas": 5214,
+  "observacao": "Preencher MAPA_COLUNAS e VALOR_OBITO em agrega_cat.py com os nomes/valores reais acima e mudar COLUNAS_CONFIRMADAS para True. Nada foi agregado nem publicado.",
+  "colunasCandidatasObito": {
+    "Indica Óbito Acidente": {
+      "Não                 ": 5194,
+      "Sim                 ": 19,
+      "{ñ class}           ": 1
+    }
+  }
+}
