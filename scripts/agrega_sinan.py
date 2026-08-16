@@ -88,19 +88,47 @@ def nome_arquivo(agravo, ano):
 
 
 def ler_dbc(tmp_path):
-    """Compatibilidade entre versões do pyreaddbc: a função de leitura já se
-    chamou read_dbc e readdbc. Detecta qual existe em vez de presumir; se a
-    assinatura não aceitar encoding, tenta sem. Se nada existir, para com
-    mensagem clara listando o que a biblioteca oferece."""
-    fn = getattr(pyreaddbc, "read_dbc", None) or getattr(pyreaddbc, "readdbc", None)
-    if fn is None:
-        disponiveis = [n for n in dir(pyreaddbc) if not n.startswith("_")]
-        sys.exit(f"ERRO: nenhuma função de leitura conhecida em pyreaddbc. "
-                 f"Funções disponíveis: {disponiveis}")
-    try:
-        return fn(tmp_path, encoding="iso-8859-1")
-    except TypeError:
-        return fn(tmp_path)
+    """Lê um .dbc do DATASUS de forma robusta entre versões do pyreaddbc.
+    Camada 1: procura a função de leitura direta (read_dbc/readdbc), inclusive
+    dentro do submódulo pyreaddbc.readdbc (em algumas versões, 'readdbc' é um
+    submódulo, não uma função). Camada 2: converte .dbc -> .dbf com dbc2dbf
+    (estável em todas as versões) e lê com dbfread. Camada 3: para com
+    diagnóstico claro. Nunca presume, nunca inventa."""
+    sub = getattr(pyreaddbc, "readdbc", None)
+    candidatos = []
+    f = getattr(pyreaddbc, "read_dbc", None)
+    if callable(f):
+        candidatos.append(f)
+    if callable(sub):
+        candidatos.append(sub)
+    elif sub is not None:  # 'readdbc' é submódulo: procurar funções dentro dele
+        for nome in ("read_dbc", "readdbc"):
+            g = getattr(sub, nome, None)
+            if callable(g):
+                candidatos.append(g)
+    for fn in candidatos:
+        try:
+            return fn(tmp_path, encoding="iso-8859-1")
+        except TypeError:
+            try:
+                return fn(tmp_path)
+            except TypeError:
+                continue
+    # Fallback: dbc2dbf + dbfread
+    conv = getattr(pyreaddbc, "dbc2dbf", None)
+    if conv is None and sub is not None and not callable(sub):
+        conv = getattr(sub, "dbc2dbf", None)
+    if callable(conv):
+        from dbfread import DBF
+        dbf_path = tmp_path[:-4] + ".dbf"
+        conv(tmp_path, dbf_path)
+        tabela = DBF(dbf_path, encoding="iso-8859-1", char_decode_errors="replace")
+        df = pd.DataFrame(iter(tabela))
+        os.unlink(dbf_path)
+        return df
+    disponiveis = [n for n in dir(pyreaddbc) if not n.startswith("_")]
+    sys.exit(f"ERRO: não foi possível ler o .dbc com esta versão do pyreaddbc. "
+             f"A biblioteca oferece: {disponiveis}")
 
 
 def baixar_dbc(ftp, caminho_remoto):
