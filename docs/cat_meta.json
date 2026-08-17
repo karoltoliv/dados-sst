@@ -1,6 +1,6 @@
 {
   "ultimoMesProcessado": "202605",
-  "dataProcessamento": "2026-08-17T02:13:40.130976+00:00",
+  "dataProcessamento": "2026-08-17T02:33:31.255078+00:00",
   "fonte": "INSS — Comunicações de Acidente de Trabalho (dados abertos)",
   "licenca": "CC-BY",
   "url": "https://dadosabertos.inss.gov.br/api/3/action/package_show?id=comunicacoes-de-acidente-de-trabalho-cat-plano-de-dados-abertos-jun-2023-a-jun-2025",
@@ -114,8 +114,11 @@
     "cat_nacional/2025.json": 1153809,
     "cat_nacional/2026.json": 592933,
     "cat_recortes/tipo-acidente.json": 1777369,
-    "cat_recortes/agente-causador.json": 7752934,
-    "cat_index.json": 3816
+    "cat_recortes/agente-causador/2023.json": 1678277,
+    "cat_recortes/agente-causador/2024.json": 2273350,
+    "cat_recortes/agente-causador/2025.json": 2398799,
+    "cat_recortes/agente-causador/2026.json": 1404712,
+    "cat_index.json": 4240
   },
   "sanidade": {
     "totalCatNacional": 1739703,

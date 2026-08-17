@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.2",
-  "dataAtualizacao": "2026-08-17T02:13:40.130976+00:00",
+  "dataAtualizacao": "2026-08-17T02:33:31.255078+00:00",
   "fonte": "CAT/INSS (dados abertos, CC-BY)",
   "cobertura": [
     "Série inicia em jun/2023: o ano de 2023 é estruturalmente incompleto.",
@@ -38,8 +38,24 @@
       "bytes": 1777369
     },
     "agente-causador": {
-      "arquivo": "cat_recortes/agente-causador.json",
-      "bytes": 7752934
+      "porAno": {
+        "2023": {
+          "arquivo": "cat_recortes/agente-causador/2023.json",
+          "bytes": 1678277
+        },
+        "2024": {
+          "arquivo": "cat_recortes/agente-causador/2024.json",
+          "bytes": 2273350
+        },
+        "2025": {
+          "arquivo": "cat_recortes/agente-causador/2025.json",
+          "bytes": 2398799
+        },
+        "2026": {
+          "arquivo": "cat_recortes/agente-causador/2026.json",
+          "bytes": 1404712
+        }
+      }
     }
   },
   "camposRecortes": [
