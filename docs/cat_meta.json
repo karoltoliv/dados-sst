@@ -1,6 +1,6 @@
 {
   "ultimoMesProcessado": "202605",
-  "dataProcessamento": "2026-08-16T22:27:25.325758+00:00",
+  "dataProcessamento": "2026-08-17T02:13:40.130976+00:00",
   "fonte": "INSS — Comunicações de Acidente de Trabalho (dados abertos)",
   "licenca": "CC-BY",
   "url": "https://dadosabertos.inss.gov.br/api/3/action/package_show?id=comunicacoes-de-acidente-de-trabalho-cat-plano-de-dados-abertos-jun-2023-a-jun-2025",
@@ -44,7 +44,7 @@
     "202605": "data_acidente dd/mm/aaaa"
   },
   "observacaoMunicipio": "valor textual conforme a fonte (coluna 'Munic Empr'), acompanhado de 'UF Munic. Empregador'",
-  "schemaVersion": "2.1 (nacional por ano, compacto) + 1.1 (detalhe por UF)",
+  "schemaVersion": "2.1 (nacional) + 1.1 (UF) + recortes 1.0 (C4)",
   "avisosCobertura": [
     "Série inicia em jun/2023: o ano de 2023 é estruturalmente incompleto.",
     "Subcobertura da fonte identificada: set-dez/2024 e nov-dez/2025 (filtro de ano na extração do PDA).",
@@ -113,11 +113,17 @@
     "cat_nacional/2024.json": 1261440,
     "cat_nacional/2025.json": 1153809,
     "cat_nacional/2026.json": 592933,
-    "cat_index.json": 3346
+    "cat_recortes/tipo-acidente.json": 1777369,
+    "cat_recortes/agente-causador.json": 7752934,
+    "cat_index.json": 3816
   },
   "sanidade": {
     "totalCatNacional": 1739703,
     "somaTotalCatUFs": 1739703,
+    "totalPorRecorte": {
+      "tipo-acidente": 1739703,
+      "agente-causador": 1739703
+    },
     "iguais": true
   },
   "anosNacional": [
@@ -125,5 +131,196 @@
     "2024",
     "2025",
     "2026"
-  ]
+  ],
+  "oportunidadeRegistro": {
+    "202306": "SEM COLUNA (arquivos de 2023 não trazem Data Emissão CAT)",
+    "202307": "SEM COLUNA (arquivos de 2023 não trazem Data Emissão CAT)",
+    "202308": "SEM COLUNA (arquivos de 2023 não trazem Data Emissão CAT)",
+    "202309": "SEM COLUNA (arquivos de 2023 não trazem Data Emissão CAT)",
+    "202310": "SEM COLUNA (arquivos de 2023 não trazem Data Emissão CAT)",
+    "202311": {
+      "0": 39281,
+      "1": 8748,
+      "3+": 1153,
+      "2": 770
+    },
+    "202312": {
+      "0": 35759,
+      "1": 8219,
+      "3+": 1216,
+      "2": 851
+    },
+    "202401": {
+      "0": 44261
+    },
+    "202402": {
+      "0": 43424,
+      "1": 8970
+    },
+    "202403": {
+      "0": 45079,
+      "1": 9073,
+      "2": 1074
+    },
+    "202404": {
+      "0": 97845,
+      "1": 18306,
+      "2": 1788,
+      "3+": 1048
+    },
+    "202405": {
+      "0": 47896,
+      "1": 8683,
+      "2": 811,
+      "3+": 600
+    },
+    "202406": {
+      "0": 41933,
+      "1": 8641,
+      "2": 802,
+      "3+": 647
+    },
+    "202407": {
+      "0": 52213,
+      "1": 10013,
+      "3+": 922,
+      "2": 821
+    },
+    "202408": {
+      "0": 26846,
+      "1": 8416,
+      "3+": 631,
+      "2": 571
+    },
+    "202409": {
+      "0": 2624,
+      "1": 671,
+      "3+": 47,
+      "2": 37
+    },
+    "202410": {
+      "0": 6121,
+      "1": 1134,
+      "3+": 113,
+      "2": 91
+    },
+    "202411": {
+      "0": 6396,
+      "1": 1491,
+      "2": 101,
+      "3+": 100
+    },
+    "202412": {
+      "0": 8083,
+      "1": 1342,
+      "3+": 159,
+      "2": 147
+    },
+    "202501": {
+      "0": 7276
+    },
+    "202502": {
+      "0": 7043,
+      "1": 1870
+    },
+    "202503": {
+      "0": 13906,
+      "1": 2678,
+      "2": 241
+    },
+    "202504": {
+      "0": 14770,
+      "1": 3144,
+      "2": 246,
+      "3+": 111
+    },
+    "202505": {
+      "0": 17176,
+      "1": 2925,
+      "2": 273,
+      "3+": 188
+    },
+    "202506": {
+      "0": 170673,
+      "1": 36131,
+      "3+": 4211,
+      "2": 3730
+    },
+    "202507": {
+      "0": 51638,
+      "1": 12485,
+      "2": 1209,
+      "3+": 1196
+    },
+    "202508": {
+      "0": 58182,
+      "1": 11925,
+      "3+": 1633,
+      "2": 1145
+    },
+    "202509": {
+      "0": 54745,
+      "1": 13298,
+      "3+": 2105,
+      "2": 1335
+    },
+    "202510": {
+      "0": 65141,
+      "1": 13384,
+      "3+": 2058,
+      "2": 1321
+    },
+    "202511": {
+      "1": 180,
+      "0": 10,
+      "3+": 10,
+      "2": 5
+    },
+    "202512": {
+      "1": 69,
+      "3+": 27,
+      "2": 18,
+      "0": 12
+    },
+    "202601": {
+      "0": 53578,
+      "1": 17
+    },
+    "202602": {
+      "0": 53162,
+      "1": 12453,
+      "2": 7
+    },
+    "202603": {
+      "0": 57082,
+      "1": 13350,
+      "2": 1576,
+      "3+": 13
+    },
+    "202604": {
+      "0": 58562,
+      "1": 13805,
+      "2": 1304,
+      "3+": 692
+    },
+    "202605": {
+      "0": 3937,
+      "1": 1070,
+      "2": 127,
+      "3+": 80
+    }
+  },
+  "oportunidadeRegistroNota": "distribuição da defasagem em meses entre a data do acidente e a emissão da CAT, por lote (0 = mesmo mês; '3+' = três ou mais; 'invalida' = data ilegível/negativa). Indicador de oportunidade do registro (cf. Guia VISAT). Arquivos de 2023 não trazem a coluna de emissão.",
+  "recortes": {
+    "dimensoes": {
+      "tipo-acidente": "Tipo do Acidente",
+      "agente-causador": "Agente  Causador  Acidente"
+    },
+    "limiarSupressao": 3,
+    "celulasAgrupadas": {
+      "tipo-acidente": 10021,
+      "agente-causador": 190128
+    },
+    "notaBrutoInterno": "contagens pré-supressão em interno/ (fora do site) para incremento mensal correto; conteúdo não excede o que os CSVs públicos do INSS já revelam"
+  }
 }
