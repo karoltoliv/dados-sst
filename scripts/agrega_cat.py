@@ -63,6 +63,7 @@ RECORTES = {
 }
 CATEGORIA_OUTROS = "Outros/Não especificado"
 LIMIAR_SUPRESSAO = 3  # contagens < 3 por município×ano são agrupadas
+RECORTES_PARTICIONADOS = ("agente-causador",)  # dimensões volumosas: 1 arquivo por ano
 CAMPOS_RECORTE = ["municipioEmpregador", "ufEmpregador", "ano", "categoria", "totalCat", "totalObitos"]
 COLUNA_EMISSAO = "Data Emissão CAT"  # ausente nos arquivos de 2023 (verificado 17/08/2026)
 
@@ -310,10 +311,12 @@ def modo_normal():
                  if meta.get("ultimoMesProcessado") is None or chave(r) > meta["ultimoMesProcessado"]]
     indice_atual = carregar_json(ARQ_INDEX, {})
     if not pendentes:
-        if os.path.isdir(DIR_RECORTES) and "recortes" in indice_atual:
-            log("Nenhum recurso novo e estrutura C4 já existe. Nada a fazer.")
+        particoes_ok = all(os.path.isdir(os.path.join(DIR_RECORTES, d))
+                           for d in RECORTES_PARTICIONADOS)
+        if os.path.isdir(DIR_RECORTES) and "recortes" in indice_atual and particoes_ok:
+            log("Nenhum recurso novo e estrutura atual já existe. Nada a fazer.")
             return
-        log("Nenhum recurso novo, mas a estrutura C4 ainda não existe — regravando saídas.")
+        log("Nenhum recurso novo, mas a estrutura de saída mudou — regravando a partir dos dados carregados.")
     else:
         log(f"{len(pendentes)} arquivo(s) mensal(is) a processar.")
 
@@ -443,15 +446,36 @@ def modo_normal():
                 registros.append([mun, uf, ano, CATEGORIA_OUTROS, outros[0], outros[1]])
                 total_dim += outros[0]
         registros.sort(key=lambda r: (r[2], r[1], r[0], r[3]))
-        obj = {"dimensao": dim, "colunaFonte": RECORTES[dim], "schemaVersion": "1.0",
-               "fonte": "CAT/INSS (dados abertos, CC-BY)", "cobertura": AVISOS_COBERTURA,
-               "supressao": f"por município×ano, categorias com contagem < {LIMIAR_SUPRESSAO} "
-                            f"agrupadas em '{CATEGORIA_OUTROS}' (inclui vazios/não classificados)",
-               "dataProcessamento": agora, "campos": CAMPOS_RECORTE, "registros": registros}
-        caminho_rel = f"cat_recortes/{dim}.json"
-        b = gravar_minificado(os.path.join(DOCS, caminho_rel), obj)
-        tamanhos[caminho_rel] = b
-        recortes_idx[dim] = {"arquivo": caminho_rel, "bytes": b}
+        base_obj = {"dimensao": dim, "colunaFonte": RECORTES[dim], "schemaVersion": "1.1",
+                    "fonte": "CAT/INSS (dados abertos, CC-BY)", "cobertura": AVISOS_COBERTURA,
+                    "supressao": f"por município×ano, categorias com contagem < {LIMIAR_SUPRESSAO} "
+                                 f"agrupadas em '{CATEGORIA_OUTROS}' (inclui vazios/não classificados)",
+                    "dataProcessamento": agora, "campos": CAMPOS_RECORTE}
+        if dim in RECORTES_PARTICIONADOS:
+            # 1 arquivo por ano (decisão de 17/08/2026): dimensões volumosas
+            dir_dim = os.path.join(DIR_RECORTES, dim)
+            os.makedirs(dir_dim, exist_ok=True)
+            por_ano_rec = defaultdict(list)
+            for r in registros:
+                por_ano_rec[r[2]].append(r)
+            entrada_idx = {"porAno": {}}
+            for ano_r in sorted(por_ano_rec):
+                obj = dict(base_obj, ano=int(ano_r), registros=por_ano_rec[ano_r])
+                caminho_rel = f"cat_recortes/{dim}/{ano_r}.json"
+                b = gravar_minificado(os.path.join(DOCS, caminho_rel), obj)
+                tamanhos[caminho_rel] = b
+                entrada_idx["porAno"][ano_r] = {"arquivo": caminho_rel, "bytes": b}
+            recortes_idx[dim] = entrada_idx
+            legado_unico = os.path.join(DIR_RECORTES, f"{dim}.json")
+            if os.path.exists(legado_unico):
+                os.remove(legado_unico)
+                log(f"Removido arquivo único legado cat_recortes/{dim}.json (agora particionado).")
+        else:
+            obj = dict(base_obj, registros=registros)
+            caminho_rel = f"cat_recortes/{dim}.json"
+            b = gravar_minificado(os.path.join(DOCS, caminho_rel), obj)
+            tamanhos[caminho_rel] = b
+            recortes_idx[dim] = {"arquivo": caminho_rel, "bytes": b}
         stats_supressao[dim] = celulas_agrupadas
         totais_recorte[dim] = total_dim
 
@@ -526,10 +550,16 @@ def modo_normal():
     with open(ARQ_META, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
-    log("=== TAMANHOS — RECORTES (C4) ===")
+    log("=== TAMANHOS — RECORTES ===")
     for dim in sorted(recortes_idx):
-        log(f"  cat_recortes/{dim}.json: {recortes_idx[dim]['bytes']/1048576:.2f} MB "
-            f"| células agrupadas na supressão: {stats_supressao[dim]}")
+        if "porAno" in recortes_idx[dim]:
+            for ano_r in sorted(recortes_idx[dim]["porAno"]):
+                b = recortes_idx[dim]["porAno"][ano_r]["bytes"]
+                log(f"  cat_recortes/{dim}/{ano_r}.json: {b/1048576:.2f} MB")
+            log(f"  ({dim}: células agrupadas na supressão: {stats_supressao[dim]})")
+        else:
+            log(f"  cat_recortes/{dim}.json: {recortes_idx[dim]['bytes']/1048576:.2f} MB "
+                f"| células agrupadas na supressão: {stats_supressao[dim]}")
     log("=== TAMANHOS — NACIONAL POR ANO ===")
     for ano in sorted(nacional_por_ano_idx):
         log(f"  cat_nacional/{ano}.json: {nacional_por_ano_idx[ano]['bytes']/1048576:.2f} MB")
