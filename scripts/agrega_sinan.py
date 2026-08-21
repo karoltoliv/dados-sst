@@ -70,7 +70,13 @@ CODIGO_OBITO_POR_AGRAVO = {
 
 CAMPO_FILTRO = {"IEXO": "DOENCA_TRA", "VIOL": "REL_TRAB"}
 CAMPO_CAT = {"IEXO": "CAT", "VIOL": "REL_CAT"}
-CAMPO_MUNICIPIO = {"VIOL": "ID_MN_OCOR"}
+# Município de referência — regra (decisão de 21/08/2026): OCORRÊNCIA quando o
+# campo existe no microdado real; NOTIFICAÇÃO nos demais. Verificado por
+# inspeção dos 10 agravos em 21/08/2026 (docs/inspecao_sinan.json):
+#   ACGR -> MUN_ACID (93,9% preenchido) | VIOL -> ID_MN_OCOR (92,5%)
+#   ACBI e demais -> sem campo de ocorrência no .dbc exportado (a ficha do
+#   ACBI documenta o campo, mas o export público não o carrega — achado).
+CAMPO_MUNICIPIO = {"VIOL": "ID_MN_OCOR", "ACGR": "MUN_ACID"}
 MUNICIPIO_PADRAO = "ID_MUNICIP"
 
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
@@ -256,7 +262,8 @@ def modo_normal():
         "fonte": "SINAN/Ministério da Saúde (DATASUS) — agravos relacionados ao trabalho",
         "series": {},
     })
-    status_por_ano, campo_mun_por_agravo, preench_mun_emp = {}, {}, {}
+    status_por_ano, preench_mun_emp = {}, {}
+    campo_mun_por_agravo = {a: CAMPO_MUNICIPIO.get(a, MUNICIPIO_PADRAO) for a in AGRAVOS}
 
     for (agravo, ano), (caminho, status) in sorted(mapa.items()):
         chave = f"{agravo}-{ano}"
@@ -288,7 +295,6 @@ def modo_normal():
         if campo_mun not in df.columns:
             sys.exit(f"ERRO {chave}: campo de município {campo_mun} inexistente. "
                      f"Colunas: {list(df.columns)}")
-        campo_mun_por_agravo[agravo] = campo_mun
         if "MUN_EMP" in df.columns:
             preench_mun_emp[chave] = taxa_preenchimento(df, "MUN_EMP")
 
@@ -359,7 +365,13 @@ def modo_normal():
             "subnotificacaoIntraRegistro": "filtro ocupacional positivo E CAT/REL_CAT = 2 (Não). "
                                            "Definição estrita: exclui 'não se aplica' (3/8) e "
                                            "'ignorado' (9).",
-            "municipio": "código IBGE de 6 dígitos conforme a fonte; vazio = IGNORADO",
+            "municipio": "código IBGE de 6 dígitos conforme a fonte; vazio = IGNORADO. "
+                         "Regra (21/08/2026): município de OCORRÊNCIA quando o campo existe "
+                         "no microdado (ACGR: MUN_ACID; VIOL: ID_MN_OCOR); município de "
+                         "NOTIFICAÇÃO (ID_MUNICIP) nos demais — verificado por inspeção dos "
+                         "10 agravos: as demais fichas não trazem campo de ocorrência no "
+                         "arquivo disseminado (o ACBI o documenta na ficha, mas o export "
+                         "público não o carrega).",
         },
     })
     os.makedirs(DOCS, exist_ok=True)
