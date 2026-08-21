@@ -28,4 +28,6 @@ Os scripts possuem **modo inspeção** (`inspecao = 1` na execução manual): ve
 
 ## Direitos
 
-Repositório sem licença de software declarada: todos os direitos reservados. Os dados agregados derivam de fontes públicas e seguem as licenças das respectivas origens (CC-BY/INSS; dado público/DATASUS)
+dados-sst — Copyright (c) 2026 [Karol Teixeira de Oliveira]
+Licenciado sob PolyForm Noncommercial License 1.0.0
+https://polyformproject.org/licenses/noncommercial/1.0.0
