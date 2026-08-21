@@ -83,8 +83,6 @@
     "PNEU-2024": "preliminar",
     "PNEU-2025": "preliminar",
     "PNEU-2026": "preliminar",
-    "VIOL-2023": "final",
-    "VIOL-2024": "final",
     "VIOL-2025": "preliminar"
   },
   "lacunas": [
@@ -94,15 +92,15 @@
       "arquivo": "VIOLBR26.dbc"
     }
   ],
-  "dataProcessamento": "2026-08-16T13:24:52.749936+00:00",
+  "dataProcessamento": "2026-08-21T04:09:24.593687+00:00",
   "fonte": "DATASUS — transferência de arquivos SINAN",
   "camposFiltro": {
     "IEXO": "DOENCA_TRA",
     "VIOL": "REL_TRAB"
   },
   "campoMunicipioPorAgravo": {
+    "ACGR": "MUN_ACID",
     "ACBI": "ID_MUNICIP",
-    "ACGR": "ID_MUNICIP",
     "CANC": "ID_MUNICIP",
     "DERM": "ID_MUNICIP",
     "IEXO": "ID_MUNICIP",
@@ -155,6 +153,6 @@
     "obito": "EVOLUCAO igual ao código de óbito PELO agravo específico (ACGR/ACBI=5; LERD/PAIR/DERM/PNEU/MENT/CANC=6; IEXO=3), conforme dicionários SINAN NET v5.0; óbitos por outra causa não contam.",
     "obitoVIOL": "null — a ficha de violência (dicionário v5.0/5.1) não possui campo de evolução/óbito; valores residuais no microdado (>99% vazios) não são confiáveis. Óbitos por violência: consultar o SIM.",
     "subnotificacaoIntraRegistro": "filtro ocupacional positivo E CAT/REL_CAT = 2 (Não). Definição estrita: exclui 'não se aplica' (3/8) e 'ignorado' (9).",
-    "municipio": "código IBGE de 6 dígitos conforme a fonte; vazio = IGNORADO"
+    "municipio": "código IBGE de 6 dígitos conforme a fonte; vazio = IGNORADO. Regra (21/08/2026): município de OCORRÊNCIA quando o campo existe no microdado (ACGR: MUN_ACID; VIOL: ID_MN_OCOR); município de NOTIFICAÇÃO (ID_MUNICIP) nos demais — verificado por inspeção dos 10 agravos: as demais fichas não trazem campo de ocorrência no arquivo disseminado (o ACBI o documenta na ficha, mas o export público não o carrega)."
   }
 }
