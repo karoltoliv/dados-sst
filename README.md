@@ -28,4 +28,4 @@ Os scripts possuem **modo inspeção** (`inspecao = 1` na execução manual): ve
 
 ## Direitos
 
-© 2026 [Karol Teixeira de Oliveira]. Código licenciado sob [PolyForm Noncommercial 1.0.0](link para o arquivo LICENSE): uso, cópia e modificação permitidos para fins não comerciais, com atribuição. Os dados agregados derivam de fontes públicas e seguem as licenças das respectivas origens (CC-BY/INSS; dado público/DATASUS).
+© 2026 [Karol Teixeira de Oliveira]. Código licenciado sob [PolyForm Noncommercial 1.0.0] (https://github.com/karoltoliv/dados-sst/blob/main/LICENSE): uso, cópia e modificação permitidos para fins não comerciais, com atribuição. Os dados agregados derivam de fontes públicas e seguem as licenças das respectivas origens (CC-BY/INSS; dado público/DATASUS).
