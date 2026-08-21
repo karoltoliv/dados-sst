@@ -189,40 +189,47 @@ def taxa_preenchimento(df, col):
 
 
 def modo_inspecao():
+    """Inspeção de campos de município (decisão de 17/08/2026): para CADA um
+    dos 10 agravos, baixa o ano mais recente disponível e reporta as colunas
+    reais + taxa de preenchimento de ID_MUNICIP e de TODO campo candidato a
+    município de ocorrência (nome contendo 'OCOR' ou 'ACID' com 'MUN'/'MN').
+    Nada é fixado sem esta verificação."""
     ftp = conectar()
     mapa, lacunas, contagem_dirs = localizar_arquivos(ftp)
     achado = {
         "dataInspecao": datetime.now(timezone.utc).isoformat(),
+        "objetivo": "verificar campo de município de ocorrência por agravo",
         "ftp": {"host": FTP_HOST, "dirBase": DIR_BASE, "arquivosPorSubdir": contagem_dirs},
-        "arquivosLocalizados": {f"{a}-{ano}": c[0] for (a, ano), c in sorted(mapa.items())},
         "lacunas": lacunas,
         "amostras": {},
     }
-    for agravo in ("IEXO", "VIOL"):
+    for agravo in AGRAVOS:
         anos = sorted([ano for (a, ano) in mapa if a == agravo])
         if not anos:
             achado["amostras"][agravo] = "NENHUM ARQUIVO LOCALIZADO"
             continue
         caminho, status = mapa[(agravo, anos[-1])]
         df, h, _ = baixar_dbc(ftp, caminho)
+        candidatas = [c for c in df.columns
+                      if "OCOR" in c.upper()
+                      or ("ACID" in c.upper() and ("MUN" in c.upper() or "MN" in c.upper()))]
+        preench = {"ID_MUNICIP": taxa_preenchimento(df, "ID_MUNICIP")}
+        for c in candidatas:
+            preench[c] = taxa_preenchimento(df, c)
         achado["amostras"][agravo] = {
-            "arquivo": caminho, "status": status, "sha256": h[:16], "linhas": len(df),
-            "colunas": list(df.columns),
-            "distFiltro": {CAMPO_FILTRO[agravo]: distribuicao(df, CAMPO_FILTRO[agravo])},
-            "distCAT": {CAMPO_CAT[agravo]: distribuicao(df, CAMPO_CAT[agravo])},
-            "distEVOLUCAO": distribuicao(df, "EVOLUCAO"),
-            "temDT_OBITO": "DT_OBITO" in df.columns,
-            "preenchimentoMunicipio": {
-                "ID_MUNICIP": taxa_preenchimento(df, "ID_MUNICIP"),
-                "ID_MN_OCOR": taxa_preenchimento(df, "ID_MN_OCOR"),
-                "MUN_EMP": taxa_preenchimento(df, "MUN_EMP"),
-            },
+            "arquivo": caminho, "status": status, "ano": anos[-1],
+            "linhas": len(df), "sha256": h[:16],
+            "colunasCandidatasOcorrencia": candidatas if candidatas else "NENHUMA",
+            "preenchimento": preench,
+            "totalColunas": len(df.columns),
         }
+        log(f"[inspeção] {agravo}-{anos[-1]}: {len(df)} linhas; "
+            f"candidatas ocorrência: {candidatas if candidatas else 'NENHUMA'}")
     ftp.quit()
     os.makedirs(DOCS, exist_ok=True)
     with open(ARQ_INSPECAO, "w", encoding="utf-8") as f:
         json.dump(achado, f, ensure_ascii=False, indent=2)
-    log("=== RESULTADO DA INSPEÇÃO ===")
+    log("=== RESULTADO DA INSPEÇÃO (campos de município, 10 agravos) ===")
     log(json.dumps(achado, ensure_ascii=False, indent=2))
 
 
