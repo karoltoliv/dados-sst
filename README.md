@@ -1,4 +1,4 @@
-# dados-sst — Pipeline de dados públicos agregados (CAT/INSS e SINAN/DATASUS)
+# dados-sst — Pipeline de dados públicos agregados, a partir da CAT/INSS e SINAN/DATASUS, para atuação em saúde segurança do trabalho/SST
 
 Automação **sem servidor** (GitHub Actions) que baixa dados públicos oficiais de saúde do trabalhador, agrega e publica arquivos JSON estáticos via GitHub Pages. Não há backend, banco de dados remoto nem coleta de dados de usuários.
 
