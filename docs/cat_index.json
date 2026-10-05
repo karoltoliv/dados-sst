@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.2",
-  "dataAtualizacao": "2026-09-05T10:25:23.278174+00:00",
+  "dataAtualizacao": "2026-10-05T14:19:14.823594+00:00",
   "fonte": "CAT/INSS (dados abertos, CC-BY)",
   "cobertura": [
     "Série inicia em jun/2023: o ano de 2023 é estruturalmente incompleto.",
@@ -22,7 +22,7 @@
     },
     "2026": {
       "arquivo": "cat_nacional/2026.json",
-      "bytes": 912830
+      "bytes": 1055495
     }
   },
   "camposNacional": [
@@ -35,7 +35,7 @@
   "recortes": {
     "tipo-acidente": {
       "arquivo": "cat_recortes/tipo-acidente.json",
-      "bytes": 1837320
+      "bytes": 1857220
     },
     "agente-causador": {
       "porAno": {
@@ -53,7 +53,7 @@
         },
         "2026": {
           "arquivo": "cat_recortes/agente-causador/2026.json",
-          "bytes": 2084591
+          "bytes": 2272458
         }
       }
     }
@@ -70,115 +70,115 @@
   "ufs": {
     "AC": {
       "arquivo": "cat_uf/ACRE.json",
-      "bytes": 117681
+      "bytes": 122109
     },
     "AL": {
       "arquivo": "cat_uf/ALAGOAS.json",
-      "bytes": 379757
+      "bytes": 394724
     },
     "AP": {
       "arquivo": "cat_uf/AMAPA.json",
-      "bytes": 92454
+      "bytes": 96179
     },
     "AM": {
       "arquivo": "cat_uf/AMAZONAS.json",
-      "bytes": 237335
+      "bytes": 247905
     },
     "BA": {
       "arquivo": "cat_uf/BAHIA.json",
-      "bytes": 1907670
+      "bytes": 1981639
     },
     "CE": {
       "arquivo": "cat_uf/CEARA.json",
-      "bytes": 1125826
+      "bytes": 1168273
     },
     "DF": {
       "arquivo": "cat_uf/DISTRITOFEDERAL.json",
-      "bytes": 240499
+      "bytes": 250885
     },
     "ES": {
       "arquivo": "cat_uf/ESPIRITOSANTO.json",
-      "bytes": 1428985
+      "bytes": 1485529
     },
     "GO": {
       "arquivo": "cat_uf/GOIAS.json",
-      "bytes": 1725303
+      "bytes": 1785192
     },
     "MA": {
       "arquivo": "cat_uf/MARANHAO.json",
-      "bytes": 506148
+      "bytes": 526438
     },
     "MT": {
       "arquivo": "cat_uf/MATOGROSSO.json",
-      "bytes": 1550327
+      "bytes": 1606445
     },
     "MS": {
       "arquivo": "cat_uf/MATOGROSSODOSUL.json",
-      "bytes": 1162511
+      "bytes": 1204943
     },
     "MG": {
       "arquivo": "cat_uf/MINASGERAIS.json",
-      "bytes": 6873104
+      "bytes": 7118735
     },
     "PA": {
       "arquivo": "cat_uf/PARA.json",
-      "bytes": 1095480
+      "bytes": 1133096
     },
     "PB": {
       "arquivo": "cat_uf/PARAIBA.json",
-      "bytes": 496531
+      "bytes": 516408
     },
     "PR": {
       "arquivo": "cat_uf/PARANA.json",
-      "bytes": 4495080
+      "bytes": 4657275
     },
     "PE": {
       "arquivo": "cat_uf/PERNAMBUCO.json",
-      "bytes": 1265077
+      "bytes": 1313177
     },
     "PI": {
       "arquivo": "cat_uf/PIAUI.json",
-      "bytes": 288071
+      "bytes": 299706
     },
     "RJ": {
       "arquivo": "cat_uf/RIODEJANEIRO.json",
-      "bytes": 2825165
+      "bytes": 2931259
     },
     "RN": {
       "arquivo": "cat_uf/RIOGRANDEDONORTE.json",
-      "bytes": 554370
+      "bytes": 574010
     },
     "RS": {
       "arquivo": "cat_uf/RIOGRANDEDOSUL.json",
-      "bytes": 4888316
+      "bytes": 5058323
     },
     "RO": {
       "arquivo": "cat_uf/RONDONIA.json",
-      "bytes": 514280
+      "bytes": 534196
     },
     "RR": {
       "arquivo": "cat_uf/RORAIMA.json",
-      "bytes": 102702
+      "bytes": 106585
     },
     "SC": {
       "arquivo": "cat_uf/SANTACATARINA.json",
-      "bytes": 4450377
+      "bytes": 4605464
     },
     "SP": {
       "arquivo": "cat_uf/SAOPAULO.json",
-      "bytes": 14052339
+      "bytes": 14537395
     },
     "SE": {
       "arquivo": "cat_uf/SERGIPE.json",
-      "bytes": 304801
+      "bytes": 316592
     },
     "TO": {
       "arquivo": "cat_uf/TOCANTINS.json",
-      "bytes": 336401
+      "bytes": 348059
     },
     "semUF": {
       "arquivo": "cat_uf/ZERADO.json",
-      "bytes": 92018
+      "bytes": 95356
     }
   },
   "ufsNaoMapeadas": {},

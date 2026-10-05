@@ -1,6 +1,6 @@
 {
-  "ultimoMesProcessado": "202607",
-  "dataProcessamento": "2026-09-05T10:25:23.278174+00:00",
+  "ultimoMesProcessado": "202608",
+  "dataProcessamento": "2026-10-05T14:19:14.823594+00:00",
   "fonte": "INSS — Comunicações de Acidente de Trabalho (dados abertos)",
   "licenca": "CC-BY",
   "url": "https://dadosabertos.inss.gov.br/api/3/action/package_show?id=comunicacoes-de-acidente-de-trabalho-cat-plano-de-dados-abertos-jun-2023-a-jun-2025",
@@ -43,7 +43,8 @@
     "202604": "data_acidente dd/mm/aaaa",
     "202605": "data_acidente dd/mm/aaaa",
     "202606": "data_acidente dd/mm/aaaa",
-    "202607": "data_acidente dd/mm/aaaa"
+    "202607": "data_acidente dd/mm/aaaa",
+    "202608": "data_acidente dd/mm/aaaa"
   },
   "observacaoMunicipio": "valor textual conforme a fonte (coluna 'Munic Empr'), acompanhado de 'UF Munic. Empregador'",
   "schemaVersion": "2.1 (nacional) + 1.1 (UF) + recortes 1.0 (C4)",
@@ -83,51 +84,51 @@
     "ZERADO"
   ],
   "tamanhoArquivosBytes": {
-    "cat_uf/ACRE.json": 117681,
-    "cat_uf/ALAGOAS.json": 379757,
-    "cat_uf/AMAPA.json": 92454,
-    "cat_uf/AMAZONAS.json": 237335,
-    "cat_uf/BAHIA.json": 1907670,
-    "cat_uf/CEARA.json": 1125826,
-    "cat_uf/DISTRITOFEDERAL.json": 240499,
-    "cat_uf/ESPIRITOSANTO.json": 1428985,
-    "cat_uf/GOIAS.json": 1725303,
-    "cat_uf/MARANHAO.json": 506148,
-    "cat_uf/MATOGROSSO.json": 1550327,
-    "cat_uf/MATOGROSSODOSUL.json": 1162511,
-    "cat_uf/MINASGERAIS.json": 6873104,
-    "cat_uf/PARA.json": 1095480,
-    "cat_uf/PARAIBA.json": 496531,
-    "cat_uf/PARANA.json": 4495080,
-    "cat_uf/PERNAMBUCO.json": 1265077,
-    "cat_uf/PIAUI.json": 288071,
-    "cat_uf/RIODEJANEIRO.json": 2825165,
-    "cat_uf/RIOGRANDEDONORTE.json": 554370,
-    "cat_uf/RIOGRANDEDOSUL.json": 4888316,
-    "cat_uf/RONDONIA.json": 514280,
-    "cat_uf/RORAIMA.json": 102702,
-    "cat_uf/SANTACATARINA.json": 4450377,
-    "cat_uf/SAOPAULO.json": 14052339,
-    "cat_uf/SERGIPE.json": 304801,
-    "cat_uf/TOCANTINS.json": 336401,
-    "cat_uf/ZERADO.json": 92018,
+    "cat_uf/ACRE.json": 122109,
+    "cat_uf/ALAGOAS.json": 394724,
+    "cat_uf/AMAPA.json": 96179,
+    "cat_uf/AMAZONAS.json": 247905,
+    "cat_uf/BAHIA.json": 1981639,
+    "cat_uf/CEARA.json": 1168273,
+    "cat_uf/DISTRITOFEDERAL.json": 250885,
+    "cat_uf/ESPIRITOSANTO.json": 1485529,
+    "cat_uf/GOIAS.json": 1785192,
+    "cat_uf/MARANHAO.json": 526438,
+    "cat_uf/MATOGROSSO.json": 1606445,
+    "cat_uf/MATOGROSSODOSUL.json": 1204943,
+    "cat_uf/MINASGERAIS.json": 7118735,
+    "cat_uf/PARA.json": 1133096,
+    "cat_uf/PARAIBA.json": 516408,
+    "cat_uf/PARANA.json": 4657275,
+    "cat_uf/PERNAMBUCO.json": 1313177,
+    "cat_uf/PIAUI.json": 299706,
+    "cat_uf/RIODEJANEIRO.json": 2931259,
+    "cat_uf/RIOGRANDEDONORTE.json": 574010,
+    "cat_uf/RIOGRANDEDOSUL.json": 5058323,
+    "cat_uf/RONDONIA.json": 534196,
+    "cat_uf/RORAIMA.json": 106585,
+    "cat_uf/SANTACATARINA.json": 4605464,
+    "cat_uf/SAOPAULO.json": 14537395,
+    "cat_uf/SERGIPE.json": 316592,
+    "cat_uf/TOCANTINS.json": 348059,
+    "cat_uf/ZERADO.json": 95356,
     "cat_nacional/2023.json": 1024018,
     "cat_nacional/2024.json": 1261440,
     "cat_nacional/2025.json": 1153809,
-    "cat_nacional/2026.json": 912830,
-    "cat_recortes/tipo-acidente.json": 1837320,
+    "cat_nacional/2026.json": 1055495,
+    "cat_recortes/tipo-acidente.json": 1857220,
     "cat_recortes/agente-causador/2023.json": 1678277,
     "cat_recortes/agente-causador/2024.json": 2273350,
     "cat_recortes/agente-causador/2025.json": 2398799,
-    "cat_recortes/agente-causador/2026.json": 2084591,
-    "cat_index.json": 4242
+    "cat_recortes/agente-causador/2026.json": 2272458,
+    "cat_index.json": 4243
   },
   "sanidade": {
-    "totalCatNacional": 1945744,
-    "somaTotalCatUFs": 1945744,
+    "totalCatNacional": 2013327,
+    "somaTotalCatUFs": 2013327,
     "totalPorRecorte": {
-      "tipo-acidente": 1945744,
-      "agente-causador": 1945744
+      "tipo-acidente": 2013327,
+      "agente-causador": 2013327
     },
     "iguais": true
   },
@@ -325,6 +326,12 @@
       "1": 12774,
       "3+": 1672,
       "2": 1417
+    },
+    "202608": {
+      "0": 51757,
+      "1": 12687,
+      "3+": 1753,
+      "2": 1386
     }
   },
   "oportunidadeRegistroNota": "distribuição da defasagem em meses entre a data do acidente e a emissão da CAT, por lote (0 = mesmo mês; '3+' = três ou mais; 'invalida' = data ilegível/negativa). Indicador de oportunidade do registro (cf. Guia VISAT). Arquivos de 2023 não trazem a coluna de emissão.",
@@ -335,8 +342,8 @@
     },
     "limiarSupressao": 3,
     "celulasAgrupadas": {
-      "tipo-acidente": 9957,
-      "agente-causador": 196639
+      "tipo-acidente": 10046,
+      "agente-causador": 200558
     },
     "notaBrutoInterno": "contagens pré-supressão em interno/ (fora do site) para incremento mensal correto; conteúdo não excede o que os CSVs públicos do INSS já revelam"
   }
